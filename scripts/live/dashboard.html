@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UAV fault detector (live)</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb; --page: #f4f3ef;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #7a7973;
+    --series-1: #2a78d6;
+    --good: #0ca30c; --good-text: #006300; --critical: #d03b3b;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1: #1a1a19; --page: #121211;
+      --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+      --series-1: #3987e5;
+      --good: #0ca30c; --good-text: #0ca30c; --critical: #d03b3b;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--text-primary);
+         font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 40px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  h1 { font-size: 18px; margin: 0; font-weight: 650; }
+  .sub { color: var(--text-secondary); font-size: 13px; }
+  .conn { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+  .conn.on .dot { background: var(--good); }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+  .status { display: flex; align-items: center; gap: 14px; }
+  .status svg { flex: none; }
+  .status .label { font-size: 22px; font-weight: 700; letter-spacing: .01em; }
+  .status.normal .label { color: var(--good-text); }
+  .status.alarm .label { color: var(--critical); }
+  .status .detail { color: var(--text-secondary); font-size: 13px; }
+  .chart-title { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 2px; }
+  .chart-title b { font-weight: 600; font-size: 13px; }
+  .chart-title span { color: var(--text-secondary); font-size: 12px; }
+  .chart { position: relative; }
+  svg.plot { display: block; width: 100%; height: auto; overflow: visible; }
+  .num { font-variant-numeric: tabular-nums; }
+  #tip { position: fixed; pointer-events: none; z-index: 5; min-width: 168px; padding: 8px 10px; border-radius: 8px;
+         background: var(--surface-1); border: 1px solid var(--border); box-shadow: 0 4px 14px rgba(0,0,0,.18); font-size: 12px; display: none; }
+  #tip .row { display: flex; justify-content: space-between; gap: 14px; }
+  #tip .row b { font-weight: 650; font-variant-numeric: tabular-nums; }
+  #tip .row span { color: var(--text-secondary); }
+  #tip .head { color: var(--text-secondary); margin-bottom: 4px; }
+  button { font: inherit; color: var(--text-primary); background: var(--surface-1); border: 1px solid var(--border);
+           border-radius: 8px; padding: 5px 10px; cursor: pointer; }
+  button:hover { background: var(--grid); }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 3px 8px; border-bottom: 1px solid var(--grid); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--text-secondary); font-weight: 600; }
+  .hidden { display: none; }
+  .foot { color: var(--text-muted); font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1 id="title">UAV fault detector (live)</h1><div class="sub" id="mode"></div></div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="conn" id="conn"><span class="dot"></span><span id="connText">connecting</span></span>
+      <button id="toggle" type="button">Table view</button>
+    </div>
+  </header>
+
+  <section class="card status normal" id="status" aria-live="polite">
+    <svg id="statusIcon" width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"></svg>
+    <div><div class="label" id="statusLabel">Waiting for data</div><div class="detail" id="statusDetail">Start the simulator and the live detector.</div></div>
+  </section>
+
+  <section id="charts"></section>
+  <section class="card hidden" id="tableCard"><table id="table"></table></section>
+  <div class="foot">Time is simulation time in seconds since the settle period. The alarm needs 3 raw alarms in a row (threshold 0.5).</div>
+</main>
+<div id="tip" role="status"></div>
+
+<script>
+"use strict";
+const NS = "http://www.w3.org/2000/svg";
+const f1 = v => { const t = v.toFixed(1); return t === "-0.0" ? "0.0" : t; };  // no negative zero
+const S = { rows: [], cut: null, meta: { threshold: 0.5 }, hover: null };
+const CHARTS = [
+  { id: "prob", title: "Fault probability", sub: "random forest output, 0 to 1", key: "prob", dom: [0, 1], ticks: [0, 0.5, 1], fmt: v => v.toFixed(2), unit: "", h: 150 },
+  { id: "alt_error", title: "Altitude error", sub: "setpoint minus measured, m", key: "alt_error", fmt: f1, unit: " m", h: 120 },
+  { id: "alt", title: "Altitude", sub: "m", key: "hud_altitude", fmt: f1, unit: " m", h: 120 },
+  { id: "vz", title: "Climb rate", sub: "m/s, positive is up", key: "vel_lin_z", fmt: f1, unit: " m/s", h: 120 },
+];
+const M = { l: 46, r: 70, t: 12, b: 22 };
+
+function el(name, attrs, parent) {
+  const e = document.createElementNS(NS, name);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// ---- build the chart cards once
+const chartsEl = document.getElementById("charts");
+for (const c of CHARTS) {
+  const card = document.createElement("div"); card.className = "card";
+  const head = document.createElement("div"); head.className = "chart-title";
+  const b = document.createElement("b"); b.textContent = c.title;
+  const sp = document.createElement("span"); sp.textContent = c.sub;
+  head.append(b, sp);
+  const wrap = document.createElement("div"); wrap.className = "chart"; wrap.tabIndex = 0;
+  wrap.setAttribute("role", "img"); wrap.setAttribute("aria-label", c.title + " over time. Use the table view for the values.");
+  const svg = el("svg", { class: "plot" }); wrap.appendChild(svg);
+  card.append(head, wrap); chartsEl.appendChild(card);
+  c.svg = svg; c.wrap = wrap;
+  wrap.addEventListener("pointermove", e => hoverAt(e, c));
+  wrap.addEventListener("pointerleave", () => { S.hover = null; drawAll(); hideTip(); });
+  wrap.addEventListener("keydown", e => keyMove(e));
+}
+
+function xDomain() {
+  const tmax = S.rows.length ? S.rows[S.rows.length - 1].t : 0;
+  return [0, Math.max(40, Math.ceil((tmax + 2) / 10) * 10)];
+}
+function niceDomain(c) {
+  if (c.dom) return c.dom;
+  const v = S.rows.map(r => r[c.key]).filter(x => x !== null);
+  if (!v.length) return [0, 1];
+  let lo = Math.min(...v), hi = Math.max(...v);
+  if (c.key === "alt_error" || c.key === "vel_lin_z") { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+  const pad = (hi - lo) * 0.08 || 1; lo -= pad; hi += pad;
+  const step = niceStep((hi - lo) / 4);
+  return [Math.floor(lo / step) * step, Math.ceil(hi / step) * step];
+}
+function niceStep(raw) {
+  const p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function ticksFor(c, dom) {
+  if (c.ticks) return c.ticks;
+  const step = niceStep((dom[1] - dom[0]) / 4), out = [];
+  for (let v = Math.ceil(dom[0] / step) * step; v <= dom[1] + 1e-9; v += step) out.push(Math.round(v * 1e6) / 1e6);
+  return out;
+}
+
+function alarmSpans() {
+  const spans = []; let start = null;
+  for (const r of S.rows) {
+    if (r.alarm && start === null) start = r.t;
+    if (!r.alarm && start !== null) { spans.push([start, r.t]); start = null; }
+  }
+  if (start !== null) spans.push([start, S.rows[S.rows.length - 1].t + 1]);
+  return spans;
+}
+
+function draw(c, idx) {
+  const svg = c.svg, W = c.wrap.clientWidth || 900, H = c.h;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.replaceChildren();
+  const xd = xDomain(), yd = niceDomain(c);
+  const x = t => M.l + (t - xd[0]) / (xd[1] - xd[0]) * (W - M.l - M.r);
+  const y = v => H - M.b - (v - yd[0]) / (yd[1] - yd[0]) * (H - M.t - M.b);
+  const last = idx === CHARTS.length - 1;
+  // alarm wash, shared across charts
+  for (const [a, b] of alarmSpans()) el("rect", { x: x(a), y: M.t, width: Math.max(1, x(b) - x(a)), height: H - M.t - M.b, fill: css("--critical"), opacity: 0.13 }, svg);
+  // grid + y ticks
+  for (const v of ticksFor(c, yd)) {
+    el("line", { x1: M.l, x2: W - M.r, y1: y(v), y2: y(v), stroke: v === 0 && !c.dom ? css("--axis") : css("--grid"), "stroke-width": 1 }, svg);
+    const tx = el("text", { x: M.l - 8, y: y(v) + 4, "text-anchor": "end", fill: css("--text-muted"), "font-size": 11, class: "num" }, svg); tx.textContent = c.fmt(v);
+  }
+  // x axis
+  el("line", { x1: M.l, x2: W - M.r, y1: H - M.b, y2: H - M.b, stroke: css("--axis"), "stroke-width": 1 }, svg);
+  const xs = niceStep((xd[1] - xd[0]) / 6);
+  for (let t = 0; t <= xd[1]; t += xs) {
+    if (last) { const tx = el("text", { x: x(t), y: H - 6, "text-anchor": "middle", fill: css("--text-muted"), "font-size": 11, class: "num" }, svg); tx.textContent = t + " s"; }
+    else el("line", { x1: x(t), x2: x(t), y1: H - M.b, y2: H - M.b + 3, stroke: css("--axis") }, svg);
+  }
+  // threshold reference (probability chart)
+  if (c.id === "prob") {
+    const th = S.meta.threshold;
+    el("line", { x1: M.l, x2: W - M.r, y1: y(th), y2: y(th), stroke: css("--text-muted"), "stroke-width": 1 }, svg);
+    const tx = el("text", { x: W - M.r + 6, y: y(th) + 4, fill: css("--text-secondary"), "font-size": 11 }, svg); tx.textContent = "threshold";
+  }
+  // engine cut marker
+  if (S.cut !== null) {
+    el("line", { x1: x(S.cut), x2: x(S.cut), y1: M.t, y2: H - M.b, stroke: css("--text-primary"), "stroke-width": 1.5 }, svg);
+    if (idx === 0) { const tx = el("text", { x: x(S.cut) - 6, y: M.t + 10, "text-anchor": "end", fill: css("--text-primary"), "font-size": 11, "font-weight": 600 }, svg); tx.textContent = "engine cut"; }
+  }
+  // series line, broken at gaps
+  let d = "", pen = false, lastPt = null;
+  for (const r of S.rows) {
+    const v = r[c.key];
+    if (v === null) { pen = false; continue; }
+    const px = x(r.t + 0.5), py = y(Math.min(Math.max(v, yd[0]), yd[1]));  // each second is plotted at its middle
+    d += (pen ? "L" : "M") + px.toFixed(1) + " " + py.toFixed(1); pen = true; lastPt = [px, py, v];
+  }
+  if (d) el("path", { d, fill: "none", stroke: css("--series-1"), "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+  // end dot with surface ring and the latest value (the one direct label)
+  if (lastPt) {
+    el("circle", { cx: lastPt[0], cy: lastPt[1], r: 5, fill: css("--series-1"), stroke: css("--surface-1"), "stroke-width": 2 }, svg);
+    const tx = el("text", { x: Math.min(lastPt[0] + 10, W - M.r + 6), y: lastPt[1] + 4, fill: css("--text-primary"), "font-size": 12, "font-weight": 650, class: "num" }, svg);
+    tx.textContent = c.fmt(lastPt[2]) + c.unit;
+    tx.setAttribute("x", W - M.r + 6); if (c.id === "prob" && Math.abs(lastPt[1] - y(S.meta.threshold)) < 14) tx.setAttribute("y", lastPt[1] - 8);
+  }
+  // crosshair
+  if (S.hover !== null) {
+    const r = S.rows[S.hover];
+    if (r) el("line", { x1: x(r.t + 0.5), x2: x(r.t + 0.5), y1: M.t, y2: H - M.b, stroke: css("--text-secondary"), "stroke-width": 1 }, svg);
+    if (r && r[c.key] !== null) el("circle", { cx: x(r.t + 0.5), cy: y(Math.min(Math.max(r[c.key], yd[0]), yd[1])), r: 5, fill: css("--series-1"), stroke: css("--surface-1"), "stroke-width": 2 }, svg);
+  }
+  c._x = x; c._W = W;
+}
+function drawAll() { CHARTS.forEach((c, i) => draw(c, i)); }
+
+// ---- hover and keyboard
+const tip = document.getElementById("tip");
+function hideTip() { tip.style.display = "none"; }
+function nearestIdx(c, clientX) {
+  const rect = c.svg.getBoundingClientRect(), px = (clientX - rect.left) * (c._W / rect.width);
+  let best = null, bd = 1e9;
+  S.rows.forEach((r, i) => { const dd = Math.abs(c._x(r.t + 0.5) - px); if (dd < bd) { bd = dd; best = i; } });
+  return best;
+}
+function hoverAt(e, c) { if (!S.rows.length) return; S.hover = nearestIdx(c, e.clientX); drawAll(); showTip(e.clientX, e.clientY); }
+function keyMove(e) {
+  if (!S.rows.length || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+  e.preventDefault();
+  S.hover = Math.max(0, Math.min(S.rows.length - 1, (S.hover === null ? S.rows.length - 1 : S.hover) + (e.key === "ArrowLeft" ? -1 : 1)));
+  drawAll(); const r = e.target.getBoundingClientRect(); showTip(r.left + r.width / 2, r.top + 20);
+}
+function showTip(px, py) {
+  const r = S.rows[S.hover]; if (!r) return hideTip();
+  tip.replaceChildren();
+  const head = document.createElement("div"); head.className = "head";
+  head.textContent = "t = " + r.t + " s" + (r.alarm ? ", alarm" : ""); tip.appendChild(head);
+  for (const c of CHARTS) {
+    const row = document.createElement("div"); row.className = "row";
+    const n = document.createElement("span"); n.textContent = c.title;
+    const v = document.createElement("b"); v.textContent = r[c.key] === null ? "none" : c.fmt(r[c.key]) + c.unit;
+    row.append(v, n); tip.appendChild(row);   // value first, name second
+  }
+  tip.style.display = "block";
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.min(px + 14, innerWidth - w - 8) + "px"; tip.style.top = Math.min(py + 14, innerHeight - h - 8) + "px";
+}
+
+// ---- status banner and table
+const statusEl = document.getElementById("status");
+function setIcon(alarm) {
+  const s = document.getElementById("statusIcon"); s.replaceChildren();
+  const col = alarm ? css("--critical") : css("--good");
+  el("circle", { cx: 17, cy: 17, r: 15, fill: col }, s);
+  if (alarm) { el("path", { d: "M17 8v11", stroke: "#fff", "stroke-width": 3, "stroke-linecap": "round" }, s); el("circle", { cx: 17, cy: 25, r: 2, fill: "#fff" }, s); }
+  else el("path", { d: "M10 17.5l5 5 9-11", stroke: "#fff", "stroke-width": 3, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }, s);
+}
+function updateStatus() {
+  const lab = document.getElementById("statusLabel"), det = document.getElementById("statusDetail");
+  const withP = S.rows.filter(r => r.prob !== null);
+  if (!withP.length) { lab.textContent = "Waiting for data"; det.textContent = S.rows.length ? "Collecting the first seconds (the detector needs about 10 s of data)." : "Start the simulator and the live detector."; return; }
+  const r = withP[withP.length - 1];
+  const alarm = r.alarm; statusEl.className = "card status " + (alarm ? "alarm" : "normal"); setIcon(alarm);
+  lab.textContent = alarm ? "Fault alarm" : "Normal";
+  let txt = "Fault probability " + r.prob.toFixed(2) + " at t = " + r.t + " s.";
+  const first = S.rows.find(x => x.alarm);
+  if (first) txt += " Alarm since t = " + first.t + " s" + (S.cut !== null ? " (" + Math.max(0, first.t + 1 - S.cut).toFixed(0) + " s after the engine cut)." : ".");
+  det.textContent = txt;
+}
+function updateTable() {
+  const t = document.getElementById("table"); t.replaceChildren();
+  const head = t.insertRow(); ["t (s)", "probability", "alarm", "altitude error (m)", "altitude (m)", "climb rate (m/s)"].forEach(h => { const th = document.createElement("th"); th.textContent = h; head.appendChild(th); });
+  for (const r of S.rows.slice(-80).reverse()) {
+    const tr = t.insertRow();
+    [r.t, r.prob === null ? "none" : r.prob.toFixed(2), r.alarm ? "ALARM" : "", r.alt_error === null ? "none" : f1(r.alt_error), r.hud_altitude === null ? "none" : f1(r.hud_altitude), r.vel_lin_z === null ? "none" : f1(r.vel_lin_z)]
+      .forEach(v => { tr.insertCell().textContent = v; });
+  }
+}
+function refresh() { drawAll(); updateStatus(); if (!document.getElementById("tableCard").classList.contains("hidden")) updateTable(); }
+
+document.getElementById("toggle").addEventListener("click", e => {
+  const card = document.getElementById("tableCard"); card.classList.toggle("hidden");
+  e.target.textContent = card.classList.contains("hidden") ? "Table view" : "Hide table"; refresh();
+});
+function setMeta(m) {
+  S.meta = Object.assign(S.meta, m || {});
+  document.getElementById("title").textContent = S.meta.title || "UAV fault detector (live)";
+  document.getElementById("mode").textContent = S.meta.mode === "replay" ? "Replay of a saved run (no simulator running)" : "Live from the simulator";
+}
+
+// ---- connection
+const connEl = document.getElementById("conn"), connText = document.getElementById("connText");
+const es = new EventSource("events");
+es.onopen = () => { connEl.classList.add("on"); connText.textContent = "connected"; };
+es.onerror = () => { connEl.classList.remove("on"); connText.textContent = "reconnecting"; };
+es.addEventListener("reset", e => { S.rows = []; S.cut = null; S.hover = null; setMeta(JSON.parse(e.data)); refresh(); });
+es.addEventListener("row", e => { S.rows.push(JSON.parse(e.data)); refresh(); });
+es.addEventListener("cut", e => { S.cut = JSON.parse(e.data).t; refresh(); });
+window.addEventListener("resize", drawAll);
+setIcon(false); drawAll();
+</script>
+</body>
+</html>

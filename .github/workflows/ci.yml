@@ -17,9 +17,11 @@ jobs:
       - name: Install requirements
         run: pip install -r requirements.txt
       - name: Python files compile
-        run: python -m compileall -q scripts tools
+        run: python -m compileall -q scripts tools tests
       - name: Screen-recorder MCP tests (without display)
         run: cd tools/screen-recorder-mcp && python -m unittest -v test_recorder
+      - name: Dashboard server test
+        run: python tests/test_dashboard.py
       - name: Shell scripts parse
         run: for f in scripts/*/*.sh; do bash -n "$f"; done
       - name: Detector runs on the committed Gazebo feature table

@@ -18,6 +18,7 @@ A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the
 | Engine fault in Gazebo (set `FW_THR_MIN` and `FW_THR_MAX` to 0) | confirmed by hand, see below |
 | Scripted Gazebo flights (`scripts/gazebo/run_flight_gz.sh`, version 3, batch `record_set.sh`) | works, 12 flights recorded on 2026-11-20 (6 normal, 6 engine cut) |
 | Detector on the 12 Gazebo flights | works, see results below |
+| Browser dashboard of the live signals (`scripts/live/dashboard.py`) | works in SIH and in replay (2026-11-20); Gazebo and Windows browser not checked |
 | Detector running live while the plane flies (`scripts/live/live_detector.py`) | works in SIH (checked against the flight log) and in one Gazebo flight with the plot window open (2026-11-20) |
 | Elevator fault (`CA_SV_CS2_TRQ_P` set to 0), recorder and cross-fault test | scripts written, not flown yet |
 | ROS 2 node | not built |
@@ -110,6 +111,25 @@ Notes:
 - Altitude error is the position setpoint altitude minus measured altitude. The MAVLink message that would carry PX4's own value (`NAV_CONTROLLER_OUTPUT`) is not sent by PX4 v1.17 in these simulations. In steady loiter the two are the same setpoint.
 - PX4 remembers parameters between runs. The script restores the engine parameters when it ends normally. If it is killed hard, check `FW_THR_MAX` yourself.
 
+## Live dashboard (new)
+
+`scripts/live/dashboard.py` is a small local web app that draws the same signals in a browser while the flight runs: fault probability with the 0.5 threshold, altitude error, altitude and vertical speed, plus a status banner (normal or fault alarm, with the alarm time) and a marker where the engine was cut. Hover shows the values, "Table" shows the numbers, and it follows the light or dark setting of the browser. It uses only the Python standard library and needs no internet.
+
+With the simulator (add `--serve` to the live detector, then open the address in the browser):
+
+```
+python scripts/live/live_detector.py --model out/model_gz.joblib --cut-at 25 --fault FW_THR_MIN=0 --fault FW_THR_MAX=0 --csv out/live3.csv --serve 8000 --no-plot
+# open http://localhost:8000
+```
+
+Without the simulator, replay a recorded live run (loops, 20 times faster than real time by default):
+
+```
+python scripts/live/dashboard.py --replay results/sih/live_sih.csv --loop
+```
+
+What was checked: in the sandbox, a real SIH flight ran through `live_detector.py --serve`, and the page showed the alarm 3 s after the engine cut, with no alarm before it. Replay mode was checked in light, dark, hover and table view in headless Chrome. Not checked yet: Gazebo with the dashboard, and a Windows browser reaching WSL2 (if `localhost` does not work, add `--host 0.0.0.0`). The replay file is from SIH; a Gazebo one will replace it.
+
 ## Reproduce the Gazebo results
 
 Needs PX4 v1.17.0 with Gazebo Harmonic (`make px4_sitl gz_rc_cessna` must start). Setup notes and the problems met are in [docs/RUN_GAZEBO.md](docs/RUN_GAZEBO.md).
@@ -138,8 +158,10 @@ scripts/
   cross_fault.py          train on one fault type, test on another
   live/train_model.py     train the forest on a table and save it
   live/probe_stream.py    diagnostic: MAVLink message rates
-tools/screen-recorder-mcp/  MCP server to screenshot and record the screen or a window (tested on Linux, not yet on Windows)
   live/live_detector.py   live detector over MAVLink with plot window
+  live/dashboard.py       browser dashboard (live with --serve, or replay of a CSV)
+  live/dashboard.html     the dashboard page
+tools/screen-recorder-mcp/  MCP server to screenshot and record the screen or a window (tested on Linux, not yet on Windows)
 results/sih/              summary, per-second probabilities, figure
 results/gazebo/           feature table, summary, per-second probabilities, figure
 docs/                     roadmap and Gazebo setup notes

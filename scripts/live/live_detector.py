@@ -168,6 +168,8 @@ def main():
     ap.add_argument("--fault", action="append", help="PARAM=VALUE set at the cut, e.g. FW_THR_MAX=0 (repeat)")
     ap.add_argument("--set", action="append", help="PARAM=VALUE set once at the start, e.g. NAV_DLL_ACT=0 (repeat)")
     ap.add_argument("--max-seconds", type=int, default=None, help="stop after this many seconds past the settle time")
+    ap.add_argument("--serve", type=int, default=None, metavar="PORT", help="also serve a live web dashboard on this port (open http://localhost:PORT)")
+    ap.add_argument("--host", default="127.0.0.1", help="address for --serve (default: this computer only)")
     ap.add_argument("--ui-delay-ms", type=int, default=0, help="testing only: make every plot refresh this much slower")
     ap.add_argument("--wait", type=int, default=60, help="seconds to wait for the first MAVLink heartbeat")
     args = ap.parse_args()
@@ -200,6 +202,12 @@ def main():
     print(f"loiter radius {loiter_rad:.0f} m; fault parameters now: {original}")
 
     window = None if args.no_plot else Window(args.png)
+    hub = None
+    if args.serve:
+        import dashboard
+        hub = dashboard.Hub(threshold=THRESH, mode="live")
+        dashboard.serve(hub, args.serve, args.host)
+        print(f"dashboard: open http://localhost:{args.serve}", flush=True)
     acc = defaultdict(lambda: defaultdict(list))  # signal -> bin -> samples
     series = {n: {} for n in SIGNALS}
     now_ms, arm_ms, t0_ms = 0, None, None
@@ -225,6 +233,8 @@ def main():
                 raw_hist.append(int(p >= THRESH))
                 row.update(prob=p, raw=raw_hist[-1], alarm=len(raw_hist) >= K and all(raw_hist[-K:]))
         rows.append(row)
+        if hub is not None:
+            hub.push_row(row)
         flag = "ALARM" if row["alarm"] else ""
         ptxt = "  n/a" if np.isnan(row["prob"]) else f"{row['prob']:5.2f}"
         print(f"t={b:3d}s  prob={ptxt}  alt_err={row['alt_error']:7.2f}  alt={row['hud_altitude']:6.1f}  "
@@ -270,6 +280,8 @@ def main():
                     cut_done = True
                     cut_t = (max(reader.latest_ms, now_ms) - t0_ms) / 1000  # PX4 time when the command was sent, not when we got to it
                     lag = (reader.latest_ms - now_ms) / 1000
+                    if hub is not None:
+                        hub.push_cut(cut_t)
                     print(f"*** fault parameters set at t={cut_t:.1f} s: {faults}" + (f"  (processing is {lag:.1f} s behind)" if lag > 1 else ""), flush=True)
                 if args.max_seconds is not None and next_bin >= args.max_seconds:
                     raise KeyboardInterrupt

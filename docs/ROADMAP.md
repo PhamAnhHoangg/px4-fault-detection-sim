@@ -20,6 +20,7 @@ Status as of 2026-11-20. Done means checked by running it. Draft means written b
 
 ## 3. Live visual (first version done in SIH)
 - Done: `scripts/live/live_detector.py` reads the state over MAVLink, builds the same features and shows probability and alarm in a plot window. Checked in SIH against the flight log.
+- Done: browser dashboard (`dashboard.py`, `--serve`), checked in SIH and replay.
 - Next: run it in Gazebo next to the 3D window, check the plot window on WSLg, and try an overlay in the Gazebo window itself if the separate window is not enough.
 
 ## 4. ROS 2 version (later)
