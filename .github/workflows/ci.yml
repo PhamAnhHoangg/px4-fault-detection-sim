@@ -20,6 +20,10 @@ jobs:
         run: python -m compileall -q scripts tools tests
       - name: Screen-recorder MCP tests (without display)
         run: cd tools/screen-recorder-mcp && python -m unittest -v test_recorder
+      - name: Robotics MCP tests
+        run: |
+          pip install "mcp>=2,<3"
+          cd tools/robotics-mcp && python test_robotics.py
       - name: Dashboard server test
         run: python tests/test_dashboard.py
       - name: Shell scripts parse
