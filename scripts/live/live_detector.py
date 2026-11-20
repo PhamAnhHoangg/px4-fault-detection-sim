@@ -276,6 +276,9 @@ def main():
                 print(f"summary: cut at {cut_t:.1f} s, first alarm after cut at t={after[0] if after else 'none'}, alarms before cut: {len(pre)}")
             else:
                 print(f"summary: {len(al)} alarm seconds in {len(rows)} s")
+        if window is not None and not window.png and rows:
+            print("flight over. The plot window stays open: close it to end the script.", flush=True)
+            window.plt.ioff(); window.plt.show()
 
 
 if __name__ == "__main__":
