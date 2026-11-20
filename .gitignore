@@ -1,0 +1,7 @@
+# flight logs and generated tables are large and are not committed
+*.ulg
+out/
+rootfs_*/
+__pycache__/
+*.pyc
+.venv/

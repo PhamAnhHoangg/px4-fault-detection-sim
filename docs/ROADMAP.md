@@ -1,43 +1,39 @@
 # Roadmap
 
-Status key: planned, in progress, done. Everything below is planned as of 2026-11-20.
+Status as of 2026-11-20. Done means checked by running it. Draft means written but not run.
 
-## 1. Environment (planned)
-- Create a separate WSL2 Ubuntu 24.04 distro for PX4 (or use the prebuilt container), on the E: drive.
-- Install PX4 and Gazebo Harmonic; pin the PX4 version in the README.
-- Confirm ROS 2 Jazzy can talk to PX4 (uXRCE-DDS agent, px4_msgs matching the PX4 version).
-- Start with the lightweight SIH simulator to test the ROS 2 link, then Gazebo headless.
+## Done
+- PX4 v1.17.0 SIH fixed-wing flown hands-off, with engine fault by `SIH_T_MAX` 0 (12 flights).
+- Feature table, leave-one-flight-out evaluation and figure from the ULogs. Result: 6 of 6 detected, median delay 1.9 s, no false alarms.
+- PX4 + Gazebo Harmonic installed in a separate WSL2 distro and the rc_cessna flown by hand.
+- Engine cut found for Gazebo: the throttle limit parameters work, `failure motor off` does not.
 
-## 2. One logged flight (planned)
-- Run a fixed-wing model (check that the packaged models include one).
-- Fly a mission and save the PX4 log.
-- Open the log with pyulog and list the available topics.
+## 1. Gazebo flights (draft, next)
+- Run `scripts/gazebo/run_flight_gz.sh` once and fix what breaks (client commands, headless option, settle time).
+- Record normal and engine-cut flights with varied takeoff altitude and loiter radius.
+- Run `build_table.py` on them. The settle time (`SETTLE_S`) may need to be longer than 30 s.
+- Check that the fault time is read correctly from the `FW_THR_MAX` parameter change.
 
-## 3. Feature node (planned)
-- ROS 2 node that builds per-second features from the vehicle topics.
-- Map the ALFA features to what PX4 provides; record which ones cannot be reproduced.
+## 2. Detector on Gazebo flights
+- Evaluate with the same leave-one-flight-out method. Compare with the SIH numbers.
+- Make the task harder: other fault types (control surfaces), noisier flights, wind.
 
-## 4. Fault injection (planned)
-- Check what PX4 failure injection supports for a fixed-wing.
-- Write a scenario file format (fault type, onset time, parameters).
-- Scenario runner: fly, inject, log the ground-truth onset time.
+## 3. Live visual
+- A script that reads the vehicle state over MAVLink while the plane flies, builds the same features and shows the fault probability and alarm next to the Gazebo window.
+- Check which of the features are available live (some come from PX4 internal topics and may need a MAVLink equivalent).
 
-## 5. Evaluation (planned)
-- Detection delay, false alarms and misses, with the ALFA alarm rule.
-- Split by flight, never by row.
-- Report the gap between real-data scores and simulated-data scores.
+## 4. ROS 2 version (later)
+- uXRCE-DDS link with matching px4_msgs, and a ROS 2 detector node.
 
-## 6. Retrain on simulated data (planned)
-- Generate many flights with varied faults and seeds.
-- Retrain or fine-tune and compare with the ALFA-trained model.
+## 5. Use the trained ALFA model (later)
+- Load the saved model from the ALFA project instead of retraining. Its feature list has to match what the simulator provides. This is not checked yet.
 
 ## Later ideas (not committed)
 - Unsupervised anomaly detection trained on normal simulated flights.
-- A data-driven dynamics model trained on PX4 logs as a fast data generator.
-- A vision node (OpenCV) using a simulated camera.
-- Comparison with public PX4 datasets.
+- A vision node (OpenCV) using a simulated camera. PX4 ships models with a mono camera (`x500_mono_cam`).
+- Comparison with public PX4 datasets (UAV-SEAD, PX4 Flight Review logs, CC-BY).
 
 ## Open questions
-- Which fault types can PX4 inject for a fixed-wing?
-- Do the packaged simulation models include a fixed-wing, and how realistic is it?
-- Which PX4 version to pin?
+- Does the scripted Gazebo run work as written?
+- Is a throttle limit close enough to a real engine failure to be useful?
+- How many flights are needed before the scores mean something?
