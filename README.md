@@ -150,5 +150,5 @@ See [docs/ROADMAP.md](docs/ROADMAP.md). The main goal now is to show the alarm l
 
 ## License and credits
 
-License: to be chosen.
+License: MIT, see [LICENSE](LICENSE).
 PX4 Autopilot, Gazebo and ROS 2 have their own licenses. The method follows the ALFA dataset (Keipour, Mousaei and Scherer, 2021).
