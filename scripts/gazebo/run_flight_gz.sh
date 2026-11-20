@@ -1,5 +1,6 @@
 #!/bin/bash
-# UNTESTED DRAFT, version 2. The first version never injected the fault (see docs/RUN_GAZEBO.md).
+# UNTESTED DRAFT, version 3. Versions 1 and 2 produced flights without a valid fault (see docs/RUN_GAZEBO.md):
+# PX4 SITL keeps changed parameters between restarts, so a throttle limit left over from an earlier run stayed active.
 # Records one rc_cessna flight in PX4 SITL + Gazebo Harmonic, headless by default.
 # usage: run_flight_gz.sh <name> <takeoff_alt> <loiter_rad> <fault: none|engine> <steady_sim_seconds>
 # env:   PX4_DIR (default $HOME/PX4-Autopilot), OUT (default ./out), HEADLESS (default 1)
@@ -28,7 +29,10 @@ done
 echo "$out" | grep -q "NAV_DLL_ACT" || { say "PX4 never answered, giving up"; exit 1; }
 say "PX4 answers, sim time $(simtime)"
 sleep 15   # sensors settle
-setp() { "$P" set "$1" "$2" >> "$LOG" 2>&1; say "set $1 $2 -> $("$P" show "$1" 2>&1 | tr '\n' ' ')"; }
+show1() { "$P" show "$1" 2>&1 | grep -E "^x " | sed "s/ *[0-9]*\/[0-9]* parameters used.*//"; }
+setp() { say "before: $(show1 "$1")"; "$P" set "$1" "$2" >> "$LOG" 2>&1; say "after:  $(show1 "$1")"; }
+# Parameters survive simulator restarts, so set every one this script depends on, including the ones the fault changes.
+setp FW_THR_MAX 1; setp FW_THR_MIN 0
 setp NAV_DLL_ACT 0; setp MIS_TAKEOFF_ALT "$ALT"; setp NAV_LOITER_RAD "$RAD"
 for i in $(seq 1 12); do "$C" check 2>&1 | tee -a "$LOG" | grep -qE "OK|Ready" && break; sleep 10; done
 say "takeoff at sim time $(simtime)"
@@ -44,6 +48,8 @@ else
   say "no fault"; wait_sim $((T1 + STEADY + 25))
   "$C" disarm -f 2>&1 | tee -a "$LOG"; sleep 3
 fi
+setp FW_THR_MAX 1   # leave the simulator as it was found, so hand flights are not affected
+sleep 2
 pkill -f "bin/px4"; pkill -f "gz sim"; sleep 3
 cp "$(ls -t "$B"/rootfs/log/*/*.ulg | head -1)" "$OUT/$NAME.ulg"
 say "saved $(ls -la "$OUT/$NAME.ulg")"

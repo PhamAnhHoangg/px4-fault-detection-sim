@@ -63,4 +63,17 @@ The first attempt with `scripts/gazebo/run_flight_gz.sh` produced a flight log, 
 - The plane took off, climbed to about 33 m, then sank at about 1.8 m/s from 47 s and landed at about 70 s. PX4 logged no failsafe. The cause is not known.
 - `build_table.py` then crashed, because the armed part of the log (about 31 s) was shorter than the default settle time. It now stops with a clear message instead.
 
-Likely cause: the script sent its commands on wall-clock timers, before PX4 had finished starting, and hid the output of the commands. Version 2 waits until PX4 answers, uses simulator time for its waits, and logs everything to `<name>.script.log`. It is still untested. Check every recorded flight with `python scripts/inspect_log.py out/<name>.ulg` before building a table.
+Likely cause: the script sent its commands on wall-clock timers, before PX4 had finished starting, and hid the output of the commands.  Check every recorded flight with `python scripts/inspect_log.py out/<name>.ulg` before building a table.
+
+## Second scripted run (version 2) and the real cause
+
+Version 2 waited correctly (takeoff at sim time 11 s, altitude at 21 s, fault set at 52 s). But the flight log ended at about 47 s, because PX4 logs only while armed and the plane had already landed. The plane sank from about 22 s, with the motor output at NaN (off), long before the fault was set.
+
+Cause: PX4 SITL keeps changed parameters in its rootfs between restarts. `FW_THR_MAX` had been set to 0 by hand in an earlier engine-cut test and stayed 0. Every later flight took off on the takeoff thrust and then glided once it switched to loiter. The same persistence explains why the script's own parameter sets left no trace in the log: a set to the value a parameter already has is not recorded as a change.
+
+Rules that follow:
+- After any hand test that changes parameters, set them back (`param set FW_THR_MAX 1`) before the next run.
+- A recorder must set every parameter it relies on at the start, and check the "before" value in its log.
+- Look at the first minute of a flight with `inspect_log.py` before trusting it: a normal flight should hold its altitude and keep the motor output above zero.
+
+Version 3 of the recorder sets `FW_THR_MAX` and `FW_THR_MIN` to nominal values at the start, logs the value before and after every set, and puts `FW_THR_MAX` back at the end.
