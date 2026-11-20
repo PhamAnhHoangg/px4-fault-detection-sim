@@ -16,7 +16,7 @@ A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the
 | Engine fault in Gazebo (set `FW_THR_MIN` and `FW_THR_MAX` to 0) | confirmed by hand, see below |
 | Scripted Gazebo flights (`scripts/gazebo/run_flight_gz.sh`, version 3, batch `record_set.sh`) | works, 12 flights recorded on 2026-11-20 (6 normal, 6 engine cut) |
 | Detector on the 12 Gazebo flights | works, see results below |
-| Detector running live while the plane flies (`scripts/live/live_detector.py`) | works in SIH (checked against the flight log); not yet run in Gazebo; the plot window is untested |
+| Detector running live while the plane flies (`scripts/live/live_detector.py`) | works in SIH (checked against the flight log) and in one Gazebo flight with the plot window open (2026-11-20) |
 | ROS 2 node | not built |
 
 ## Results (SIH, 12 flights)
@@ -89,7 +89,9 @@ python scripts/live/live_detector.py --model out/model_gz.joblib --cut-at 25 --f
 
 Start the script before `commander takeoff`. It skips the first 30 s after arming (same as the table), so the probability starts at about 40 s into the flight (30 s of settling plus 10 s of window). `--png file.png` saves the plot instead of opening a window, `--csv file.csv` logs one row per second.
 
-What was checked: in SIH, a new flight ran through the script. The engine cut was set at t = 25 s and the alarm came 2 s later with no alarm before the cut. The per-second signals match the ones computed from the flight log of the same flight (the offset is under one second, because the script finds the arming moment from the heartbeat). Not checked: the same run in Gazebo, the plot window on WSLg (it may need `sudo apt install python3-tk`), and a model trained on a table from another simulator.
+What was checked: in SIH, a new flight ran through the script. The engine cut was set at t = 25 s and the alarm came 2 s later with no alarm before the cut. The per-second signals match the ones computed from the flight log of the same flight (the offset is under one second, because the script finds the arming moment from the heartbeat). One Gazebo flight (rc_cessna, model trained on the 12 Gazebo flights, plot window open on WSLg): the engine cut was set at t = 25 s, the first alarm came at t = 29 s (4 s after the cut, the offline median is 2.65 s), and there was no alarm before the cut. The probability stayed below 0.3 before the cut and reached 1.0 at t = 28 s. That is one flight, so it shows the live path works and says nothing about reliability. The window needs `sudo apt install python3-tk` on WSL.
+
+Known issue: with the plot window open, only 5 to 7 of the 10 altitude messages per second reach the script (the `n=` column). Per-second means still look right, but this is lost data and the cause is not fixed. With `--png` instead of a window all 10 arrive.
 
 Notes:
 - The model that is saved was trained on all flights of the table, so its score on those flights means nothing. The honest numbers are the leave-one-flight-out ones above.
