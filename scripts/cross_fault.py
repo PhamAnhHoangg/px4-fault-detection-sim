@@ -10,6 +10,8 @@ K = 3
 tab = pd.read_csv(sys.argv[1]); train_p = tuple(sys.argv[2].split(",")); test_p = tuple(sys.argv[3].split(","))
 feat = [c for c in tab.columns if "__" in c]
 tr = tab[tab.flight.str.startswith(train_p)]; te_all = tab[tab.flight.str.startswith(test_p)]
+if tr["label"].nunique() < 2 or te_all.empty:
+    sys.exit(f"need both normal and fault seconds in the training flights ({sorted(tr.flight.unique())}) and at least one test flight ({sorted(te_all.flight.unique())})")
 m = RandomForestClassifier(n_estimators=300, min_samples_leaf=5, class_weight="balanced_subsample",
                            random_state=0, n_jobs=2).fit(tr[feat], tr["label"])
 rows, probs = [], []

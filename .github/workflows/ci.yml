@@ -1,0 +1,34 @@
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install requirements
+        run: pip install -r requirements.txt
+      - name: Python files compile
+        run: python -m compileall -q scripts
+      - name: Shell scripts parse
+        run: for f in scripts/*/*.sh; do bash -n "$f"; done
+      - name: Detector runs on the committed Gazebo feature table
+        run: |
+          python scripts/detect_eval.py results/gazebo/table_gz.csv /tmp/r_gz | tee /tmp/eval.txt
+          # loose limits on purpose: the forest can differ a little between scikit-learn versions
+          detected=$(grep -oP 'fault flights detected: \K[0-9]+' /tmp/eval.txt)
+          alarms=$(grep -oP 'normal flights with any alarm: \K[0-9]+' /tmp/eval.txt)
+          test "$detected" -ge 5 && test "$alarms" -le 1
+      - name: Model training and cross-fault test run
+        run: |
+          python scripts/live/train_model.py results/gazebo/table_gz.csv /tmp/model.joblib
+          # train on the normal flights and three engine-cut flights, test on the other three
+          python scripts/cross_fault.py results/gazebo/table_gz.csv n,f1,f2,f3 f4,f5,f6 /tmp/x
