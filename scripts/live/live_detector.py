@@ -16,7 +16,8 @@ Usage examples:
   python live_detector.py --model model.joblib --cut-at 25 \
       --fault FW_THR_MIN=0 --fault FW_THR_MAX=0                     # cut the engine for you
 """
-import argparse, math, struct, sys, time
+import argparse, math, struct, sys, threading, time
+from collections import deque
 from collections import defaultdict
 import numpy as np, pandas as pd, joblib
 from pymavlink import mavutil
@@ -63,8 +64,9 @@ def get_param(master, name):
     return read_param(master, name)[0]
 
 
-def set_param(master, name, value):
-    _, ptype = read_param(master, name)
+def set_param(master, name, value, ptype=None):
+    if ptype is None:  # reading needs the receive loop, so while the reader thread runs pass the type in
+        _, ptype = read_param(master, name)
     if ptype is None:
         sys.exit(f"could not read {name} before setting it")
     raw = struct.unpack("<f", struct.pack("<i", int(value)))[0] if ptype in INT_TYPES else float(value)
@@ -77,6 +79,32 @@ def parse_kv(items):
         k, v = s.split("=")
         out.append((k, float(v)))
     return out
+
+
+WANTED = {"HEARTBEAT", "GLOBAL_POSITION_INT", "LOCAL_POSITION_NED", "ATTITUDE_QUATERNION", "ATTITUDE_TARGET",
+          "POSITION_TARGET_GLOBAL_INT"}
+
+
+class Reader(threading.Thread):
+    """Reads MAVLink in the background so a slow plot window cannot make us miss messages
+    (PX4 sends about 2500 messages a second and the socket buffer is small)."""
+    def __init__(self, master):
+        super().__init__(daemon=True)
+        self.master, self.q, self.stop_flag, self.last_rx, self.latest_ms = master, deque(), threading.Event(), time.time(), 0
+
+    def run(self):
+        while not self.stop_flag.is_set():
+            m = self.master.recv_match(blocking=True, timeout=0.2)
+            if m is None:
+                continue
+            self.last_rx = time.time()
+            if hasattr(m, "time_boot_ms"):
+                self.latest_ms = max(self.latest_ms, m.time_boot_ms)  # newest PX4 time we have received
+            if m.get_type() in WANTED:
+                self.q.append(m)
+
+    def stop(self):
+        self.stop_flag.set(); self.join(timeout=2)
 
 
 def features_for_bin(series, b):
@@ -140,6 +168,7 @@ def main():
     ap.add_argument("--fault", action="append", help="PARAM=VALUE set at the cut, e.g. FW_THR_MAX=0 (repeat)")
     ap.add_argument("--set", action="append", help="PARAM=VALUE set once at the start, e.g. NAV_DLL_ACT=0 (repeat)")
     ap.add_argument("--max-seconds", type=int, default=None, help="stop after this many seconds past the settle time")
+    ap.add_argument("--ui-delay-ms", type=int, default=0, help="testing only: make every plot refresh this much slower")
     ap.add_argument("--wait", type=int, default=60, help="seconds to wait for the first MAVLink heartbeat")
     args = ap.parse_args()
 
@@ -163,8 +192,9 @@ def main():
         sys.exit("could not read NAV_LOITER_RAD")
     faults = parse_kv(args.fault)
     original = {}
+    ptypes = {}
     for k, _ in faults:
-        original[k] = get_param(master, k)
+        original[k], ptypes[k] = read_param(master, k)
         if original[k] is None:
             sys.exit(f"could not read {k}")
     print(f"loiter radius {loiter_rad:.0f} m; fault parameters now: {original}")
@@ -203,18 +233,21 @@ def main():
             window.update(b, row["prob"], row["alarm"], cut_t)
 
     print(f"watching. Flight starts counting {args.settle} s after arming.", flush=True)
-    last_rx = time.time(); last_ui = 0.0
+    last_ui = 0.0
+    reader = Reader(master); reader.start()
     try:
         while True:
-            m = master.recv_match(blocking=True, timeout=0.2)
             if window is not None and not window.png and time.time() - last_ui > 0.1:
                 window.plt.pause(0.001)  # let the window handle clicks and redraw, at most 10 times a second
+                if args.ui_delay_ms:
+                    time.sleep(args.ui_delay_ms / 1000)
                 last_ui = time.time()
-            if m is None:
-                if time.time() - last_rx > 15:
+            if not reader.q:
+                if time.time() - reader.last_rx > 15:
                     print("no data for 15 s, stopping"); break
+                time.sleep(0.005)
                 continue
-            last_rx = time.time()
+            m = reader.q.popleft()
             ty = m.get_type()
             if ty == "HEARTBEAT" and m.type != mavutil.mavlink.MAV_TYPE_GCS:
                 armed = bool(m.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
@@ -233,9 +266,11 @@ def main():
                 finalize(next_bin); next_bin += 1
                 if args.cut_at is not None and not cut_done and next_bin >= args.cut_at:
                     for k, v in faults:
-                        set_param(master, k, v)
-                    cut_done = True; cut_t = (now_ms - t0_ms) / 1000
-                    print(f"*** fault parameters set at t={cut_t:.1f} s: {faults}", flush=True)
+                        set_param(master, k, v, ptypes[k])
+                    cut_done = True
+                    cut_t = (max(reader.latest_ms, now_ms) - t0_ms) / 1000  # PX4 time when the command was sent, not when we got to it
+                    lag = (reader.latest_ms - now_ms) / 1000
+                    print(f"*** fault parameters set at t={cut_t:.1f} s: {faults}" + (f"  (processing is {lag:.1f} s behind)" if lag > 1 else ""), flush=True)
                 if args.max_seconds is not None and next_bin >= args.max_seconds:
                     raise KeyboardInterrupt
             if ty == "GLOBAL_POSITION_INT":
@@ -261,6 +296,7 @@ def main():
     except KeyboardInterrupt:
         print("stopping")
     finally:
+        reader.stop()  # the restore below reads parameters, so the reader must be stopped first
         for k, v in original.items():
             if cut_done:
                 set_param(master, k, v)
