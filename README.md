@@ -89,7 +89,16 @@ python scripts/live/live_detector.py --model out/model_gz.joblib --cut-at 25 --f
 
 Start the script before `commander takeoff`. It skips the first 30 s after arming (same as the table), so the probability starts at about 40 s into the flight (30 s of settling plus 10 s of window). `--png file.png` saves the plot instead of opening a window, `--csv file.csv` logs one row per second.
 
-What was checked: in SIH, a new flight ran through the script. The engine cut was set at t = 25 s and the alarm came 2 s later with no alarm before the cut. The per-second signals match the ones computed from the flight log of the same flight (the offset is under one second, because the script finds the arming moment from the heartbeat). One Gazebo flight (rc_cessna, model trained on the 12 Gazebo flights, plot window open on WSLg): the engine cut was set at t = 25 s, the first alarm came at t = 29 s (4 s after the cut, the offline median is 2.65 s), and there was no alarm before the cut. The probability stayed below 0.3 before the cut and reached 1.0 at t = 28 s. That is one flight, so it shows the live path works and says nothing about reliability. The window needs `sudo apt install python3-tk` on WSL.
+What was checked: in SIH, a new flight ran through the script. The engine cut was set at t = 25 s and the alarm came 2 s later with no alarm before the cut. The per-second signals match the ones computed from the flight log of the same flight (the offset is under one second, because the script finds the arming moment from the heartbeat). ![Live window after an engine cut in Gazebo: probability jumps to 1.0 and the alarm turns on](results/gazebo/live_window.png)
+
+Two Gazebo flights so far (rc_cessna, model trained on the 12 Gazebo flights, plot window open on WSLg). In both the engine cut was set at t = 25 s and there was no alarm before it:
+
+| Flight | First alarm | Delay after the cut |
+| --- | --- | --- |
+| live 1 | t = 29 s | 4 s |
+| live 2 | t = 28 s | 3 s |
+
+The offline median delay is 2.65 s. The probability stayed below 0.3 before the cut and was above 0.97 one to two seconds after it. Two flights show the live path works and say nothing about reliability. The screenshot is from live 2. The window needs `sudo apt install python3-tk` on WSL.
 
 Known issue: with the plot window open, only 5 to 7 of the 10 altitude messages per second reach the script (the `n=` column). Per-second means still look right, but this is lost data and the cause is not fixed. With `--png` instead of a window all 10 arrive.
 
