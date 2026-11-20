@@ -16,9 +16,9 @@ Status as of 2026-11-20. Done means checked by running it. Draft means written b
 - Done: leave-one-flight-out on 12 flights, compared with SIH.
 - Next: make the task harder, with other fault types (control surfaces), noisier flights, wind, and more flights.
 
-## 3. Live visual
-- A script that reads the vehicle state over MAVLink while the plane flies, builds the same features and shows the fault probability and alarm next to the Gazebo window.
-- Check which of the features are available live (some come from PX4 internal topics and may need a MAVLink equivalent).
+## 3. Live visual (first version done in SIH)
+- Done: `scripts/live/live_detector.py` reads the state over MAVLink, builds the same features and shows probability and alarm in a plot window. Checked in SIH against the flight log.
+- Next: run it in Gazebo next to the 3D window, check the plot window on WSLg, and try an overlay in the Gazebo window itself if the separate window is not enough.
 
 ## 4. ROS 2 version (later)
 - uXRCE-DDS link with matching px4_msgs, and a ROS 2 detector node.

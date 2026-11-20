@@ -16,7 +16,7 @@ A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the
 | Engine fault in Gazebo (set `FW_THR_MIN` and `FW_THR_MAX` to 0) | confirmed by hand, see below |
 | Scripted Gazebo flights (`scripts/gazebo/run_flight_gz.sh`, version 3, batch `record_set.sh`) | works, 12 flights recorded on 2026-11-20 (6 normal, 6 engine cut) |
 | Detector on the 12 Gazebo flights | works, see results below |
-| Detector running live while the plane flies | not built |
+| Detector running live while the plane flies (`scripts/live/live_detector.py`) | works in SIH (checked against the flight log); not yet run in Gazebo; the plot window is untested |
 | ROS 2 node | not built |
 
 ## Results (SIH, 12 flights)
@@ -74,6 +74,28 @@ python scripts/plot_demo.py out/r_probs.csv f1 n1 out/demo.png
 
 The arguments are: name, takeoff altitude, loiter radius, fault, seconds before the fault. The recorded set used `n4 28 110`, `n5 32 95`, `n6 25 120` and the matching `f` flights with the same numbers and fault times of 55, 42 and 48 seconds. The settings of the first six flights (n1 to n3, f1 to f3) were not written down. Flight logs are about 40 MB each and are not committed.
 
+## Live detector (new, SIH tested)
+
+`scripts/live/live_detector.py` connects to a running PX4 simulation over MAVLink, builds the same per-second features as `build_table.py`, runs the saved forest every second and shows the fault probability and the alarm in a window. It can also cut the engine for you at a chosen second and puts the parameters back afterwards.
+
+Train the model once on a feature table, then start the simulator, start the script, and take off:
+
+```
+python scripts/live/train_model.py out/table_gz.csv out/model_gz.joblib
+# terminal 1: make px4_sitl gz_rc_cessna      (in pxh: param set NAV_DLL_ACT 0, then commander takeoff)
+# terminal 2:
+python scripts/live/live_detector.py --model out/model_gz.joblib --cut-at 25 --fault FW_THR_MIN=0 --fault FW_THR_MAX=0
+```
+
+Start the script before `commander takeoff`. It skips the first 30 s after arming (same as the table), so the probability starts at about 40 s into the flight (30 s of settling plus 10 s of window). `--png file.png` saves the plot instead of opening a window, `--csv file.csv` logs one row per second.
+
+What was checked: in SIH, a new flight ran through the script. The engine cut was set at t = 25 s and the alarm came 2 s later with no alarm before the cut. The per-second signals match the ones computed from the flight log of the same flight (the offset is under one second, because the script finds the arming moment from the heartbeat). Not checked: the same run in Gazebo, the plot window on WSLg (it may need `sudo apt install python3-tk`), and a model trained on a table from another simulator.
+
+Notes:
+- The model that is saved was trained on all flights of the table, so its score on those flights means nothing. The honest numbers are the leave-one-flight-out ones above.
+- Altitude error is the position setpoint altitude minus measured altitude. The MAVLink message that would carry PX4's own value (`NAV_CONTROLLER_OUTPUT`) is not sent by PX4 v1.17 in these simulations. In steady loiter the two are the same setpoint.
+- PX4 remembers parameters between runs. The script restores the engine parameters when it ends normally. If it is killed hard, check `FW_THR_MAX` yourself.
+
 ## Reproduce the Gazebo results
 
 Needs PX4 v1.17.0 with Gazebo Harmonic (`make px4_sitl gz_rc_cessna` must start). Setup notes and the problems met are in [docs/RUN_GAZEBO.md](docs/RUN_GAZEBO.md).
@@ -98,6 +120,8 @@ scripts/
   sih/run_flight.sh       record one SIH flight (tested)
   gazebo/run_flight_gz.sh record one Gazebo flight
   gazebo/record_set.sh    record the 6 normal and 6 engine-cut Gazebo flights
+  live/train_model.py     train the forest on a table and save it
+  live/live_detector.py   live detector over MAVLink with plot window
 results/sih/              summary, per-second probabilities, figure
 results/gazebo/           feature table, summary, per-second probabilities, figure
 docs/                     roadmap and Gazebo setup notes
