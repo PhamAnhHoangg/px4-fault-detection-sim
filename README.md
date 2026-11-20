@@ -1,6 +1,6 @@
 # px4-fault-detection-sim
 
-Status: early. A small experiment works in PX4's built-in simulator (SIH). PX4 with Gazebo has been flown by hand, and the scripts for recording Gazebo flights are untested.
+Status: early. The detector works on 12 flights in PX4's built-in simulator (SIH) and on 12 flights in PX4 with Gazebo Harmonic (3D simulator, rc_cessna). It does not yet run live next to the plane.
 
 A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the engine at a known time, and measures how well the detector finds it. The detector follows the method of the separate project [alfa-fault-detection](https://github.com/PhamAnhHoangg/alfa-fault-detection).
 
@@ -14,7 +14,8 @@ A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the
 | Leave-one-flight-out evaluation, alarm after 3 in a row | works |
 | PX4 + Gazebo Harmonic, rc_cessna flown by hand (WSL2, Ubuntu 24.04) | confirmed by hand on 2026-11-20 |
 | Engine fault in Gazebo (set `FW_THR_MIN` and `FW_THR_MAX` to 0) | confirmed by hand, see below |
-| Scripted Gazebo flights (`scripts/gazebo/run_flight_gz.sh`, version 3) | one normal and one engine-cut flight recorded and checked by hand on 2026-11-20; the 12-flight batch (`record_set.sh`) is not yet run |
+| Scripted Gazebo flights (`scripts/gazebo/run_flight_gz.sh`, version 3, batch `record_set.sh`) | works, 12 flights recorded on 2026-11-20 (6 normal, 6 engine cut) |
+| Detector on the 12 Gazebo flights | works, see results below |
 | Detector running live while the plane flies | not built |
 | ROS 2 node | not built |
 
@@ -36,6 +37,18 @@ How to read this: it shows the method works on PX4 flight logs. It is not a benc
 - The simulated plane is not the aircraft behind the ALFA data, so scores here say nothing about real-flight scores.
 - The features are a simplified version of the ALFA ones: altitude error, altitude, climb rate, cross-track error to the loiter circle, and roll, pitch and yaw gaps between setpoint and estimate, each as 5 s mean, 5 s standard deviation and 10 s change.
 
+## Results (Gazebo rc_cessna, 12 flights)
+
+![Detector on a held-out Gazebo flight: engine cut and a normal flight](results/gazebo/demo_gz.png)
+
+- 6 of 6 engine-cut flights detected, delay 2.1 to 3.5 s, median 2.65 s.
+- 0 of 6 normal flights raised an alarm. No false-alarm seconds before any fault (31 to 39 s of clean flight before each cut).
+- Same method and settings as the SIH run (threshold 0.5, alarm after 3 raw alarms in a row, leave-one-flight-out). Nothing was tuned on these flights.
+- The delay is a little longer than in SIH (median 1.9 s). The cause has not been looked into.
+- Per-flight numbers: [results/gazebo/r_gz_summary.csv](results/gazebo/r_gz_summary.csv). The feature table is [results/gazebo/table_gz.csv](results/gazebo/table_gz.csv).
+
+The same caveats as for SIH apply: small sample, one airframe, one fault type, retrained forest and not the ALFA model. The engine cut is a throttle cap (`FW_THR_MAX` 0), because `failure motor off` has no effect. Takeoff altitude (25 to 40 m), loiter radius (70 to 120 m) and the time of the cut vary between flights, little else does.
+
 ## Gazebo, confirmed by hand
 
 On 2026-11-20, in a separate WSL2 Ubuntu 24.04 distro with PX4 v1.17.0:
@@ -45,7 +58,7 @@ On 2026-11-20, in a separate WSL2 Ubuntu 24.04 distro with PX4 v1.17.0:
 - Setting `FW_THR_MIN` and `FW_THR_MAX` to 0 does cut the power: the speed fell from about 15 to about 7 m/s and the plane lost height (30 m down to about 11 m in the reading taken).
 - A plane landed with `commander land` can tip over on touchdown, and PX4 then refuses to arm until the simulator is restarted.
 
-This was typed by hand, one flight, and no flight log from it is in this repo. Setup notes and the problems met are in [docs/RUN_GAZEBO.md](docs/RUN_GAZEBO.md).
+This part was typed by hand on one flight, and no flight log from it is in this repo. The scripted flights above repeat it. Setup notes and the problems met are in [docs/RUN_GAZEBO.md](docs/RUN_GAZEBO.md).
 
 ## Reproduce the SIH results
 
@@ -61,6 +74,19 @@ python scripts/plot_demo.py out/r_probs.csv f1 n1 out/demo.png
 
 The arguments are: name, takeoff altitude, loiter radius, fault, seconds before the fault. The recorded set used `n4 28 110`, `n5 32 95`, `n6 25 120` and the matching `f` flights with the same numbers and fault times of 55, 42 and 48 seconds. The settings of the first six flights (n1 to n3, f1 to f3) were not written down. Flight logs are about 40 MB each and are not committed.
 
+## Reproduce the Gazebo results
+
+Needs PX4 v1.17.0 with Gazebo Harmonic (`make px4_sitl gz_rc_cessna` must start). Setup notes and the problems met are in [docs/RUN_GAZEBO.md](docs/RUN_GAZEBO.md).
+
+```
+PX4_DIR=~/PX4-Autopilot OUT=./out scripts/gazebo/record_set.sh   # about 25 minutes, 12 flights
+SETTLE_S=30 python scripts/build_table.py out/table_gz.csv out/n?.ulg out/f?.ulg
+python scripts/detect_eval.py out/table_gz.csv out/r_gz
+python scripts/plot_demo.py out/r_gz_probs.csv f1 n1 out/demo_gz.png
+```
+
+Run it headless and leave the machine alone while it records. Check a flight with `python scripts/inspect_log.py out/f1.ulg`.
+
 ## Layout
 
 ```
@@ -70,14 +96,16 @@ scripts/
   plot_demo.py            figure for one fault flight and one normal flight
   inspect_log.py          check what happened in a flight log (messages, parameters, height, speed, motor)
   sih/run_flight.sh       record one SIH flight (tested)
-  gazebo/run_flight_gz.sh record one Gazebo flight (untested draft)
+  gazebo/run_flight_gz.sh record one Gazebo flight
+  gazebo/record_set.sh    record the 6 normal and 6 engine-cut Gazebo flights
 results/sih/              summary, per-second probabilities, figure
+results/gazebo/           feature table, summary, per-second probabilities, figure
 docs/                     roadmap and Gazebo setup notes
 ```
 
 ## Next steps
 
-See [docs/ROADMAP.md](docs/ROADMAP.md). The main goal is to record Gazebo flights, run the detector on them, and then show the alarm live next to the plane in the 3D window.
+See [docs/ROADMAP.md](docs/ROADMAP.md). The main goal now is to show the alarm live next to the plane in the 3D window.
 
 ## License and credits
 
