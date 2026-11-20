@@ -14,7 +14,7 @@ A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the
 | Leave-one-flight-out evaluation, alarm after 3 in a row | works |
 | PX4 + Gazebo Harmonic, rc_cessna flown by hand (WSL2, Ubuntu 24.04) | confirmed by hand on 2026-11-20 |
 | Engine fault in Gazebo (set `FW_THR_MIN` and `FW_THR_MAX` to 0) | confirmed by hand, see below |
-| Scripted Gazebo flights (`scripts/gazebo/run_flight_gz.sh`) | untested draft |
+| Scripted Gazebo flights (`scripts/gazebo/run_flight_gz.sh`) | untested draft; the first attempt did not inject the fault, version 2 not yet run |
 | Detector running live while the plane flies | not built |
 | ROS 2 node | not built |
 
@@ -68,6 +68,7 @@ scripts/
   build_table.py          ULog flights to a per-second feature table
   detect_eval.py          leave-one-flight-out random forest, delay and false alarms
   plot_demo.py            figure for one fault flight and one normal flight
+  inspect_log.py          check what happened in a flight log (messages, parameters, height, speed, motor)
   sih/run_flight.sh       record one SIH flight (tested)
   gazebo/run_flight_gz.sh record one Gazebo flight (untested draft)
 results/sih/              summary, per-second probabilities, figure

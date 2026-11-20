@@ -54,3 +54,13 @@ pxh> listener vehicle_local_position 1
 ```
 
 `z` is negative upward, so about -30 means 30 m up. Do not use `commander land` on the plane: it can tip over. Let the fault flight end by itself or run `shutdown`.
+
+## First scripted run (version 1 of the recorder)
+
+The first attempt with `scripts/gazebo/run_flight_gz.sh` produced a flight log, but not a valid fault flight:
+
+- The log held only one parameter change of the script's (`NAV_LOITER_RAD`), made at the same instant as the preflight check and arming. `NAV_DLL_ACT` and `FW_THR_MAX` were not recorded.
+- The plane took off, climbed to about 33 m, then sank at about 1.8 m/s from 47 s and landed at about 70 s. PX4 logged no failsafe. The cause is not known.
+- `build_table.py` then crashed, because the armed part of the log (about 31 s) was shorter than the default settle time. It now stops with a clear message instead.
+
+Likely cause: the script sent its commands on wall-clock timers, before PX4 had finished starting, and hid the output of the commands. Version 2 waits until PX4 answers, uses simulator time for its waits, and logs everything to `<name>.script.log`. It is still untested. Check every recorded flight with `python scripts/inspect_log.py out/<name>.ulg` before building a table.

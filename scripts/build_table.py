@@ -27,7 +27,9 @@ def build(path):
     u = ULog(path)
     st = topic(u, "vehicle_status")
     armed = st.loc[st["arming_state"] == 2, "timestamp"]
-    t_arm = armed.iloc[0]
+    if armed.empty:
+        raise SystemExit(f"{path}: the vehicle never armed")
+    t_arm = int(armed.iloc[0])
     gp, lp, tecs = topic(u, "vehicle_global_position"), topic(u, "vehicle_local_position"), topic(u, "tecs_status")
     att, atts = topic(u, "vehicle_attitude"), topic(u, "vehicle_attitude_setpoint")
     trip, mot = topic(u, "position_setpoint_triplet"), topic(u, "actuator_motors")
@@ -37,6 +39,8 @@ def build(path):
         if name in FAULT_PARAMS and val == 0:
             fault_us = ts
     t0 = t_arm + SETTLE_S * 1_000_000
+    if int(u.last_timestamp) <= t0:
+        raise SystemExit(f"{path}: only {(int(u.last_timestamp) - t_arm) / 1e6:.0f} s of armed flight, less than SETTLE_S={SETTLE_S}. Lower SETTLE_S or check the flight with inspect_log.py")
 
     def per_sec(df, series):
         sec = ((df["timestamp"].to_numpy() - t0) // 1_000_000).astype(int)
