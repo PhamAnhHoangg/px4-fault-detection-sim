@@ -77,3 +77,10 @@ Rules that follow:
 - Look at the first minute of a flight with `inspect_log.py` before trusting it: a normal flight should hold its altitude and keep the motor output above zero.
 
 Version 3 of the recorder sets `FW_THR_MAX` and `FW_THR_MIN` to nominal values at the start, logs the value before and after every set, and puts `FW_THR_MAX` back at the end.
+
+## Third scripted run (version 3): two valid flights
+
+- `g3` (normal): held 29 to 30 m at about 14.5 m/s for 60 s, motor output 0.62, `FW_THR_MAX` found at 0.0 and reset to 1.0 by the script.
+- `g4` (engine cut): same steady flight until `FW_THR_MAX 0.0` at 63.1 s, then speed 14 to 7 m/s, motor output NaN, sink about 1.8 m/s, landed at 86 s.
+
+The fault flight has only about 20 s of steady flight after the climb is skipped (altitude reached at 22 s, fault at 63 s, table starts 30 s after arming). Use a longer steady time (50 to 70 s) for flights that go into the table.
