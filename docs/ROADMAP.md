@@ -14,7 +14,9 @@ Status as of 2026-11-20. Done means checked by running it. Draft means written b
 
 ## 2. Detector on Gazebo flights (first result done)
 - Done: leave-one-flight-out on 12 flights, compared with SIH.
-- Next: make the task harder, with other fault types (control surfaces), noisier flights, wind, and more flights.
+- Next: make the task harder, with other fault types, noisier flights, wind, and more flights.
+- Elevator fault: injection by setting `CA_SV_CS2_TRQ_P` to 0 (the allocator stops moving the elevator). Scripts exist (`record_set_elevator.sh`, `cross_fault.py`). First check by hand with the live script that the plane stays flyable and the fault does something visible.
+- Question to answer: does a detector trained on engine cuts find an elevator fault it never saw? Then: train on both.
 
 ## 3. Live visual (first version done in SIH)
 - Done: `scripts/live/live_detector.py` reads the state over MAVLink, builds the same features and shows probability and alarm in a plot window. Checked in SIH against the flight log.

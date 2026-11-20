@@ -1,13 +1,13 @@
 """Build a per-second feature table from PX4 ULog flights, using the ALFA project's windowing:
 5 s rolling mean, 5 s rolling std, 10 s change of each signal. Label = 1 from the fault second on.
-Fault time = moment SIH_T_MAX (SIH) or FW_THR_MAX (Gazebo) was set to 0, read from the ULog parameter changes.
+Fault time = moment SIH_T_MAX (SIH), FW_THR_MAX (Gazebo engine) or CA_SV_CS2_TRQ_P (Gazebo elevator) was set to 0, read from the ULog parameter changes.
 SET env SETTLE_S to change how many seconds after arming the table starts (default 30).
 Usage: python build_table.py out.csv flight1.ulg flight2.ulg ..."""
 import sys, os, numpy as np, pandas as pd
 from pyulog import ULog
 
 SETTLE_S = int(os.environ.get("SETTLE_S", 30))  # skip the climb: start after this many seconds of flight
-FAULT_PARAMS = ("SIH_T_MAX", "FW_THR_MAX")  # a change of one of these to 0 marks the fault second
+FAULT_PARAMS = ("SIH_T_MAX", "FW_THR_MAX", "CA_SV_CS2_TRQ_P")  # a change of one of these to 0 marks the fault second
 POST_FAULT_CAP = 30  # same cap idea as ALFA (evalkit.load(cap=30))
 
 def euler(q):  # q = w,x,y,z

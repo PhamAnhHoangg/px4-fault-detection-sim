@@ -1,13 +1,14 @@
 #!/bin/bash
-# UNTESTED DRAFT, version 3. Versions 1 and 2 produced flights without a valid fault (see docs/RUN_GAZEBO.md):
+# Version 3 (tested on 12 flights on 2026-11-20; the elevator fault is NOT tested yet). Versions 1 and 2 produced flights without a valid fault (see docs/RUN_GAZEBO.md):
 # PX4 SITL keeps changed parameters between restarts, so a throttle limit left over from an earlier run stayed active.
 # Records one rc_cessna flight in PX4 SITL + Gazebo Harmonic, headless by default.
-# usage: run_flight_gz.sh <name> <takeoff_alt> <loiter_rad> <fault: none|engine> <steady_sim_seconds>
+# usage: run_flight_gz.sh <name> <takeoff_alt> <loiter_rad> <fault: none|engine|elevator> <steady_sim_seconds>
 # env:   PX4_DIR (default $HOME/PX4-Autopilot), OUT (default ./out), HEADLESS (default 1)
 # Waits use simulator time (read from PX4), not wall time, so a slow simulator does not shift the fault.
 # Everything is logged to $OUT/<name>.script.log. After the run, check the flight with:
 #   python scripts/inspect_log.py $OUT/<name>.ulg
-# Fault = FW_THR_MIN and FW_THR_MAX set to 0. `failure motor off` has no effect on this plane.
+# engine   = FW_THR_MIN and FW_THR_MAX set to 0. `failure motor off` has no effect on this plane.
+# elevator = CA_SV_CS2_TRQ_P set to 0: the control allocator stops moving the elevator (servo 3), so pitch control is lost.
 set -u
 NAME=$1; ALT=$2; RAD=$3; FAULT=$4; STEADY=$5
 PX4_DIR=${PX4_DIR:-$HOME/PX4-Autopilot}; OUT=${OUT:-$PWD/out}; mkdir -p "$OUT"; OUT=$(cd "$OUT" && pwd)
@@ -32,7 +33,7 @@ sleep 15   # sensors settle
 show1() { "$P" show "$1" 2>&1 | grep -E "^x " | sed "s/ *[0-9]*\/[0-9]* parameters used.*//"; }
 setp() { say "before: $(show1 "$1")"; "$P" set "$1" "$2" >> "$LOG" 2>&1; say "after:  $(show1 "$1")"; }
 # Parameters survive simulator restarts, so set every one this script depends on, including the ones the fault changes.
-setp FW_THR_MAX 1; setp FW_THR_MIN 0
+setp FW_THR_MAX 1; setp FW_THR_MIN 0; setp CA_SV_CS2_TRQ_P 1
 setp NAV_DLL_ACT 0; setp MIS_TAKEOFF_ALT "$ALT"; setp NAV_LOITER_RAD "$RAD"
 for i in $(seq 1 12); do "$C" check 2>&1 | tee -a "$LOG" | grep -qE "OK|Ready" && break; sleep 10; done
 say "takeoff at sim time $(simtime)"
@@ -44,11 +45,15 @@ if [ "$FAULT" = "engine" ]; then
   setp FW_THR_MIN 0; setp FW_THR_MAX 0
   Tf=$(simtime); say "fault set at sim time $Tf"
   wait_sim $((Tf + 25))
+elif [ "$FAULT" = "elevator" ]; then
+  setp CA_SV_CS2_TRQ_P 0
+  Tf=$(simtime); say "fault set at sim time $Tf"
+  wait_sim $((Tf + 25))
 else
   say "no fault"; wait_sim $((T1 + STEADY + 25))
   "$C" disarm -f 2>&1 | tee -a "$LOG"; sleep 3
 fi
-setp FW_THR_MAX 1   # leave the simulator as it was found, so hand flights are not affected
+setp CA_SV_CS2_TRQ_P 1; setp FW_THR_MAX 1   # leave the simulator as it was found, so hand flights are not affected
 sleep 2
 pkill -f "bin/px4"; pkill -f "gz sim"; sleep 3
 cp "$(ls -t "$B"/rootfs/log/*/*.ulg | head -1)" "$OUT/$NAME.ulg"

@@ -17,6 +17,7 @@ A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the
 | Scripted Gazebo flights (`scripts/gazebo/run_flight_gz.sh`, version 3, batch `record_set.sh`) | works, 12 flights recorded on 2026-11-20 (6 normal, 6 engine cut) |
 | Detector on the 12 Gazebo flights | works, see results below |
 | Detector running live while the plane flies (`scripts/live/live_detector.py`) | works in SIH (checked against the flight log) and in one Gazebo flight with the plot window open (2026-11-20) |
+| Elevator fault (`CA_SV_CS2_TRQ_P` set to 0), recorder and cross-fault test | scripts written, not flown yet |
 | ROS 2 node | not built |
 
 ## Results (SIH, 12 flights)
@@ -100,7 +101,7 @@ Two Gazebo flights so far (rc_cessna, model trained on the 12 Gazebo flights, pl
 
 The offline median delay is 2.65 s. The probability stayed below 0.3 before the cut and was above 0.97 one to two seconds after it. Two flights show the live path works and say nothing about reliability. The screenshot is from live 2. The window needs `sudo apt install python3-tk` on WSL.
 
-Known issue: with the plot window open, only 5 to 7 of the 10 altitude messages per second reach the script (the `n=` column). Per-second means still look right, but this is lost data and the cause is not fixed. With `--png` instead of a window all 10 arrive.
+Lost data: in the two flights above only 5 to 7 of the 10 altitude messages per second reached the script (the `n=` column) while the plot window was open, because the window refresh held up the reading. The script now reads MAVLink in a background thread. In a test with an artificially slow window (SIH, virtual screen) the old script dropped to 0 to 4 samples per second and the new one kept all 10. This has not been confirmed on WSLg yet: look for `n=10`.
 
 Notes:
 - The model that is saved was trained on all flights of the table, so its score on those flights means nothing. The honest numbers are the leave-one-flight-out ones above.
@@ -131,7 +132,10 @@ scripts/
   sih/run_flight.sh       record one SIH flight (tested)
   gazebo/run_flight_gz.sh record one Gazebo flight
   gazebo/record_set.sh    record the 6 normal and 6 engine-cut Gazebo flights
+  gazebo/record_set_elevator.sh   6 elevator-fault flights (not flown yet)
+  cross_fault.py          train on one fault type, test on another
   live/train_model.py     train the forest on a table and save it
+  live/probe_stream.py    diagnostic: MAVLink message rates
   live/live_detector.py   live detector over MAVLink with plot window
 results/sih/              summary, per-second probabilities, figure
 results/gazebo/           feature table, summary, per-second probabilities, figure
