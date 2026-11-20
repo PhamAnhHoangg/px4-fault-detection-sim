@@ -186,7 +186,7 @@ def main():
         for g, (a, s) in {"roll_gap": ("roll", "roll_sp"), "pitch_gap": ("pitch", "pitch_sp"), "yaw_gap": ("yaw", "yaw_sp")}.items():
             va, vs = acc[a].get(b), acc[s].get(b)
             series[g][b] = wrap(float(np.mean(va)) - float(np.mean(vs))) if va and vs else np.nan
-        row = {"t": b, "prob": np.nan, "raw": 0, "alarm": False}
+        row = {"t": b, "prob": np.nan, "raw": 0, "alarm": False, "samples": len(acc["hud_altitude"].get(b, []))}
         row.update({n: series[n][b] for n in SIGNALS})
         if b >= 10:
             f = features_for_bin(series, b)
@@ -198,17 +198,18 @@ def main():
         flag = "ALARM" if row["alarm"] else ""
         ptxt = "  n/a" if np.isnan(row["prob"]) else f"{row['prob']:5.2f}"
         print(f"t={b:3d}s  prob={ptxt}  alt_err={row['alt_error']:7.2f}  alt={row['hud_altitude']:6.1f}  "
-              f"vz={row['vel_lin_z']:5.1f}  {flag}", flush=True)
+              f"vz={row['vel_lin_z']:5.1f}  n={row['samples']:2d}  {flag}", flush=True)
         if window is not None and not np.isnan(row["prob"]):
             window.update(b, row["prob"], row["alarm"], cut_t)
 
     print(f"watching. Flight starts counting {args.settle} s after arming.", flush=True)
-    last_rx = time.time()
+    last_rx = time.time(); last_ui = 0.0
     try:
         while True:
             m = master.recv_match(blocking=True, timeout=0.2)
-            if window is not None and not window.png:
-                window.plt.pause(0.001)
+            if window is not None and not window.png and time.time() - last_ui > 0.1:
+                window.plt.pause(0.001)  # let the window handle clicks and redraw, at most 10 times a second
+                last_ui = time.time()
             if m is None:
                 if time.time() - last_rx > 15:
                     print("no data for 15 s, stopping"); break
