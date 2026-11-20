@@ -1,5 +1,7 @@
 # px4-fault-detection-sim
 
+[![checks](https://github.com/PhamAnhHoangg/px4-fault-detection-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/PhamAnhHoangg/px4-fault-detection-sim/actions/workflows/ci.yml)
+
 Status: early. The detector works on 12 flights in PX4's built-in simulator (SIH) and on 12 flights in PX4 with Gazebo Harmonic (3D simulator, rc_cessna). It does not yet run live next to the plane.
 
 A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the engine at a known time, and measures how well the detector finds it. The detector follows the method of the separate project [alfa-fault-detection](https://github.com/PhamAnhHoangg/alfa-fault-detection).
