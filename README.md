@@ -138,6 +138,7 @@ scripts/
   cross_fault.py          train on one fault type, test on another
   live/train_model.py     train the forest on a table and save it
   live/probe_stream.py    diagnostic: MAVLink message rates
+tools/screen-recorder-mcp/  MCP server to screenshot and record the screen or a window (tested on Linux, not yet on Windows)
   live/live_detector.py   live detector over MAVLink with plot window
 results/sih/              summary, per-second probabilities, figure
 results/gazebo/           feature table, summary, per-second probabilities, figure
