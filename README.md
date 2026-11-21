@@ -7,6 +7,10 @@ Status (2026-11-21): tested on 18 flights in PX4's built-in simulator (SIH) and 
 A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the engine at a known time, and measures how well the detector finds it. The detector follows the method of the separate project [alfa-fault-detection](https://github.com/PhamAnhHoangg/alfa-fault-detection).
 
 
+![Gazebo chase camera and live dashboard side by side: engine cut at 25.4 s, alarm at 28 s, the plane noses down and sinks](docs/demo_side_by_side.gif)
+
+*Left: a camera fixed 5 m behind the plane in Gazebo (`sim/models/rc_cessna_chase`), recorded with `scripts/vision/record_frames.py`. Right: the dashboard at the same flight second, from `results/gazebo/live_chase1.csv`. The two are lined up with the simulation clock (`scripts/live/make_side_by_side.py`). After the cut the horizon rises in the picture because the nose goes down. The recording stops at t = 40 s, before touchdown. [MP4 version](docs/demo_side_by_side.mp4).*
+
 ![Dashboard replay of a recorded Gazebo flight: the engine is cut at 25 s, the alarm turns red 2.6 s later, and the plane glides to the ground](docs/demo_dashboard.gif)
 
 *Replay of a real live run in Gazebo (`results/gazebo/live_engine_demo.csv`), made with `scripts/live/make_demo_gif.py`. Engine cut at 25.4 s, alarm at 28 s, no alarm before the cut, plane on the ground about 20 s later.*

@@ -29,6 +29,7 @@ def main():
     ap.add_argument("--from", dest="t_from", type=float, default=15); ap.add_argument("--fps", type=float, default=10)
     ap.add_argument("--shift", type=float, default=0.0, help="seconds to add to the camera clock if the two clocks differ")
     ap.add_argument("--height", type=int, default=540)
+    ap.add_argument("--zoom", type=float, default=1.0, help="crop the middle of the camera image (1.3 = 30 percent closer)")
     a = ap.parse_args()
     rows = trim_after_touchdown(list(csv.DictReader(open(a.csv))))
     off = next(float(r["boot_s"]) - float(r["t"]) for r in rows if dashboard.clean(r.get("boot_s")) is not None)
@@ -44,6 +45,9 @@ def main():
     k = 0
     for t in np.arange(max(a.t_from, ft[0]), min(t_end, ft[-1]), 1 / a.fps):
         cam = cv2.imread(str(frames[int(np.abs(ft - t).argmin())]))
+        if a.zoom > 1:
+            h, w = cam.shape[:2]; ch, cw = int(h / a.zoom), int(w / a.zoom)
+            cam = cam[(h - ch) // 2:(h - ch) // 2 + ch, (w - cw) // 2:(w - cw) // 2 + cw]
         d = cv2.imread(str(dash[min(int(t), len(dash) - 1)]))
         cam = cv2.resize(cam, (int(cam.shape[1] * a.height / cam.shape[0]), a.height))
         d = cv2.resize(d, (int(d.shape[1] * a.height / d.shape[0]), a.height))
