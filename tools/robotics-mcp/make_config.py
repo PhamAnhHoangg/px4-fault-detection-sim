@@ -10,6 +10,7 @@ from pathlib import Path
 ap = argparse.ArgumentParser()
 ap.add_argument("--wsl", help="WSL distro name; the servers then run inside it")
 ap.add_argument("--wsl-dir", default="~/px4-fault-detection-sim/tools/robotics-mcp", help="folder of this code inside WSL")
+ap.add_argument("--wsl-python", default="python3", help="python inside WSL that has mcp installed, e.g. ~/venv-sim/bin/python")
 ap.add_argument("--ros-distro", default="jazzy")
 ap.add_argument("--state-dir", default=None, help="ROBOTICS_MCP_DIR (grants and approvals); use the same one in your terminal")
 ap.add_argument("--repo", default=None, help="PX4_SIM_REPO path (for px4_run_eval)")
@@ -22,7 +23,7 @@ for name, f in (("px4", "px4_server.py"), ("arduino", "arduino_server.py"), ("ro
             continue
         pre = f"source /opt/ros/{a.ros_distro}/setup.bash && " if name == "ros2" else ""
         env = f"ROBOTICS_MCP_DIR={a.state_dir or '~/.robotics-mcp'} "
-        servers[name] = {"command": "wsl.exe", "args": ["-d", a.wsl, "bash", "-lc", f"{pre}{env}python3 {a.wsl_dir}/{f}"]}
+        servers[name] = {"command": "wsl.exe", "args": ["-d", a.wsl, "bash", "-lc", f"{pre}{env}{a.wsl_python} {a.wsl_dir}/{f}"]}
     else:
         e = {"ROBOTICS_MCP_DIR": a.state_dir} if a.state_dir else {}
         if name == "px4" and a.repo:
