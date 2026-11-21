@@ -1,7 +1,8 @@
 #!/bin/bash
 # Run the PX4 simulator in the background, so you need only one terminal.
 #   scripts/sim.sh start [target]   start PX4 (default target gz_rc_cessna; gz_rc_cessna_cam = with forward camera;
-#                                   sihsim_airplane for SIH) and reset the fault parameters
+#                                   gz_rc_cessna_chase = with a chase camera for demo videos; sihsim_airplane for SIH)
+#                                   and reset the fault parameters
 #   scripts/sim.sh status           running or not, and FW_THR_MAX / FW_THR_MIN
 #   scripts/sim.sh takeoff          arm and take off (same as commander takeoff in pxh)
 #   scripts/sim.sh attach           open the pxh> console (leave it again with Ctrl+b then d; Ctrl+c would stop PX4)
@@ -31,7 +32,7 @@ case "${1:-}" in
     # Models kept in this repo (sim/models) are started directly with an existing airframe, so PX4 itself is not edited
     # PX4 hides the Gazebo window when HEADLESS is set to anything, even 0, so set it only for HEADLESS=1
     if [ "${HEADLESS:-0}" = "1" ]; then H="HEADLESS=1"; else H="env -u HEADLESS"; fi
-    case "$TARGET" in gz_rc_cessna_cam) AUTOSTART=4003 ;; *) AUTOSTART="" ;; esac
+    case "$TARGET" in gz_rc_cessna_cam|gz_rc_cessna_chase) AUTOSTART=4003 ;; *) AUTOSTART="" ;; esac
     AUTOSTART=${SIM_AUTOSTART:-$AUTOSTART}
     if [ -n "$AUTOSTART" ]; then
       [ -x "$B/bin/px4" ] || { echo "PX4 is not built yet: run  make px4_sitl  in $PX4_DIR once"; exit 1; }

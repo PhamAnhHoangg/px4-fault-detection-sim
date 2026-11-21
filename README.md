@@ -206,6 +206,8 @@ scripts/
   vision/vision_detect.py vision alarm; vision/compare_alarms.py: vision vs telemetry
   vision/record_frames.py save Gazebo camera frames as PNG
 sim/models/rc_cessna_cam/ the Cessna with a forward camera (used by sim.sh start gz_rc_cessna_cam)
+sim/models/rc_cessna_chase/ the Cessna with a chase camera for demo videos (sim.sh start gz_rc_cessna_chase)
+  live/make_side_by_side.py chase-camera frames and dashboard side by side, lined up by the simulation clock
   sim.sh                  start, stop and check the simulator in the background (one terminal)
   live/train_model.py     train the forest on a table and save it
   live/probe_stream.py    diagnostic: MAVLink message rates
