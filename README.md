@@ -156,6 +156,7 @@ scripts/
   gazebo/record_set.sh    record the 6 normal and 6 engine-cut Gazebo flights
   gazebo/record_set_elevator.sh   6 elevator-fault flights (not flown yet)
   cross_fault.py          train on one fault type, test on another
+  sim.sh                  start, stop and check the simulator in the background (one terminal)
   live/train_model.py     train the forest on a table and save it
   live/probe_stream.py    diagnostic: MAVLink message rates
   live/live_detector.py   live detector over MAVLink with plot window

@@ -27,6 +27,30 @@ Limits a grant cannot widen: the parameter allowlist and ranges in `config.json`
 
 Honest limits: this protects against instructions hidden in tool output (a log line, a topic, a serial line) and against the model asking for more than you allowed. It does not protect against another program running as your user that can read your files. A connection is treated as real hardware unless it is a UDP or TCP address on this machine (override with `real_hardware` in `config.json`).
 
+## Quick routine (one terminal)
+
+```
+scripts/sim.sh start                 # PX4 + Gazebo in the background, fault parameters reset (sihsim_airplane for SIH)
+claude                               # in ~/px4-fault-detection-sim, with the px4 server added
+! python tools/robotics-mcp/robotics_guard.py grant px4:params --minutes 30    # optional lazy mode, typed by you
+! python tools/robotics-mcp/robotics_guard.py approve <id>                     # or approve single calls
+scripts/sim.sh stop
+```
+
+In Claude Code a line starting with `!` is a command you type yourself, so an approval made that way is still yours. If Claude Code ever asks to run `robotics_guard.py approve` or `grant` on its own, answer no.
+
+## Without AI: px4ctl.py
+
+The same functions as a normal command line. A change asks you y/N in the terminal (or `--yes`); the allowlist, ranges, rate limit and audit log still apply.
+
+```
+python px4ctl.py status
+python px4ctl.py get FW_THR_MAX
+python px4ctl.py inject engine_gazebo
+python px4ctl.py clear
+python px4ctl.py eval results/gazebo/table_gz.csv
+```
+
 ## PX4 server tools
 
 `px4_status`, `px4_get_param` (read); `px4_set_param` (allowlisted, range checked), `px4_inject_fault` (`engine_gazebo`, `engine_sih`, `elevator`; originals are saved), `px4_clear_faults` (write); `px4_run_eval` (runs `scripts/detect_eval.py` on a table inside the repo); `guard_status`.
@@ -70,7 +94,7 @@ If PX4 runs in WSL2 and the server on Windows, the UDP port may not be reachable
 
 ## Tested
 
-Unit tests (`python test_robotics.py`, 16 tests, no simulator needed): approval flow, single use, exact-call match, deny, grant scope, expiry, tampered grant, real hardware rule, error fallback, rate limit, allowlist beats grant, fault inject and clear restore the originals. End to end in the sandbox: the server started as a real MCP stdio process, a client listed the tools and ran status, parameter read, fault injection with approval, a denied non-allowlisted parameter, lazy-mode clear, and the evaluation on a PX4 SIH simulation (3 repeated runs). Not tested: Gazebo, Windows, Claude Desktop itself, real hardware.
+Unit tests (`python test_robotics.py`, 16 tests, no simulator needed): approval flow, single use, exact-call match, deny, grant scope, expiry, tampered grant, real hardware rule, error fallback, rate limit, allowlist beats grant, fault inject and clear restore the originals. End to end in the sandbox: the server started as a real MCP stdio process, a client listed the tools and ran status, parameter read, fault injection with approval, a denied non-allowlisted parameter, lazy-mode clear, and the evaluation on a PX4 SIH simulation (3 repeated runs). Tested by the owner on 2026-11-21 in Claude Code on WSL2 with Gazebo rc_cessna: status and parameter reads, `engine_gazebo` inject after approval, single-use approval, clear restored `FW_THR_MAX` to 1.0 (checked in pxh). `scripts/sim.sh` and `px4ctl.py` were tested in the sandbox with SIH only. Not tested: Claude Desktop, real hardware.
 
 Arduino server: 5 unit tests (`python test_arduino.py`) against `fake_arduino_cli.py` and a fake serial reader. Not tested: real `arduino-cli` output, a real board, pyserial. RobotStudio server: 8 unit tests (`python test_robotstudio.py`) against a fake RWS HTTP server (digest and basic login, only GET sent, path checks, output limits). The resource paths follow ABB's published API but were not checked against a real controller: `ctrlstate` (version 1) is from memory, and the JSON shape is returned raw, not parsed. Use `rs_get` to explore if a tool returns 404.
 

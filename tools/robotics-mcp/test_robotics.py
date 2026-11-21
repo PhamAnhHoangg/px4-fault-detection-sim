@@ -127,5 +127,29 @@ class Px4Test(Base):
         self.assertIn("error", self.s.px4_run_eval("../../etc/passwd"))
 
 
+class Px4ctlTest(Base):
+    def setUp(self):
+        super().setUp()
+        import px4ctl
+        self.c = px4ctl
+        self.fake = Fake()
+        px4ctl.Px4Backend = lambda conn: self.fake
+
+    def test_inject_clear_with_yes(self):
+        self.assertEqual(self.c.main(["--yes", "inject", "engine_gazebo"]), 0)
+        self.assertEqual(self.fake.p["FW_THR_MAX"], 0.0)
+        self.assertEqual(self.c.main(["clear"]), 0)
+        self.assertEqual(self.fake.p["FW_THR_MAX"], 1.0)
+
+    def test_without_yes_and_no_terminal_nothing_changes(self):
+        self.assertEqual(self.c.main(["inject", "engine_gazebo"]), 1)
+        self.assertEqual(self.fake.p["FW_THR_MAX"], 1.0)
+
+    def test_allowlist_applies(self):
+        self.assertEqual(self.c.main(["--yes", "set", "MAV_SYS_ID", "3"]), 1)
+        self.assertEqual(self.c.main(["--yes", "set", "FW_THR_MAX", "7"]), 1)
+        self.assertEqual(self.fake.p["FW_THR_MAX"], 1.0)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -4,17 +4,13 @@ Environment: PX4_CONNECTION (default udpin:0.0.0.0:14540), PX4_SIM_REPO (path of
 import json, os, subprocess, sys, time
 from pathlib import Path
 import robotics_guard as guard
+import px4_core
+from px4_core import FAULTS, check_limits as _limits
 from px4_backend import Px4Backend, BackendError
 from mcp.server.mcpserver import MCPServer
 
 SERVER = "px4"
 SCOPE = "px4:params"
-FAULTS = {   # known faults: parameter values that were used in the recorded flights
-    "engine_gazebo": {"FW_THR_MIN": 0, "FW_THR_MAX": 0},
-    "engine_sih": {"SIH_T_MAX": 0},
-    "elevator": {"CA_SV_CS2_TRQ_P": 0},
-}
-
 mcp = MCPServer("px4", instructions=(
     "Tools for a PX4 simulation. Changes need the user's approval: when a tool returns needs_confirmation, tell the user "
     "the exact command to run in their own terminal, wait until they say it is done, then repeat the same call. "
@@ -33,19 +29,6 @@ def _gate(tool, tier, args):
     if res["decision"] == "deny":
         return _j({"status": "denied", "reason": res["reason"]})
     return _j(guard.confirm_message(res))
-
-
-def _limits(name, value):
-    allow = guard.config()["px4"]["param_allow"]
-    if name not in allow:
-        raise ValueError(f"{name} is not on the allowlist (edit config.json yourself to add it)")
-    lo, hi = allow[name]
-    if not (lo <= float(value) <= hi):
-        raise ValueError(f"{name}={value} is outside the allowed range {lo} to {hi}")
-
-
-def _faults_file():
-    return guard.state_dir() / "px4_faults.json"
 
 
 @mcp.tool()
@@ -100,15 +83,9 @@ def px4_inject_fault(kind: str) -> str:
     if blocked:
         return blocked
     try:
-        saved = json.loads(_faults_file().read_text()) if _faults_file().exists() else {}
-        for name, val in FAULTS[kind].items():
-            _limits(name, val)
-            if name not in saved:
-                saved[name] = backend.get_param(name)[0]
-            _faults_file().write_text(json.dumps(saved))
-            backend.set_param(name, val)
+        out = px4_core.inject(backend, kind)
         guard.record_result(True)
-        return _j({"injected": kind, "set": FAULTS[kind], "originals_saved": saved})
+        return _j(out)
     except (BackendError, ValueError) as e:
         guard.record_result(False)
         return f"error: {e}. Run px4_clear_faults to be safe."
@@ -120,15 +97,10 @@ def px4_clear_faults() -> str:
     blocked = _gate("px4_clear_faults", guard.WRITE, {})
     if blocked:
         return blocked
-    if not _faults_file().exists():
-        return _j({"restored": {}, "note": "nothing was injected"})
     try:
-        saved = json.loads(_faults_file().read_text())
-        for name, val in saved.items():
-            backend.set_param(name, val)
-        _faults_file().unlink()
+        out = px4_core.clear(backend)
         guard.record_result(True)
-        return _j({"restored": saved})
+        return _j(out)
     except BackendError as e:
         guard.record_result(False)
         return f"error: {e}"
