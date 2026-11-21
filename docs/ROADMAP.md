@@ -39,3 +39,7 @@ Status as of 2026-11-20. Done means checked by running it. Draft means written b
 - Why is the delay in Gazebo a bit longer than in SIH?
 - Is a throttle limit close enough to a real engine failure to be useful?
 - How many flights are needed before the scores mean something?
+
+## 2026-11-21: harder faults and baselines
+- Done in SIH: weak engine, weak elevator, slow engine failure (18 flights). Simple one-feature rules against the model on 36 flights: the model is the only method that is fastest or tied fastest on every fault type.
+- Next: wind in Gazebo (the real test for false alarms and for the 3-in-a-row rule), the harder faults in Gazebo, more flights per type.

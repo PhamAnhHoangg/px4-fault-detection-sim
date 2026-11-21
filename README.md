@@ -30,6 +30,7 @@ A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the
 | Experimental, parked: vision detector from an onboard camera (`scripts/vision`, [docs/VISION.md](docs/VISION.md)) | OpenCV part tested on synthetic frames only; not part of the results |
 | Elevator fault and transfer between fault types | SIH and Gazebo, 18 flights each (2026-11-21), see below |
 | Noise robustness | SIH only |
+| Smaller and slower faults, simple rules against the model, alarm settings | SIH, 36 flights (2026-11-21), see below |
 | Browser dashboard of the live signals (`scripts/live/dashboard.py`) | works in SIH and in replay (2026-11-20); Gazebo and Windows browser not checked |
 | Detector running live while the plane flies (`scripts/live/live_detector.py`) | works in SIH (checked against the flight log) and in one Gazebo flight with the plot window open (2026-11-20) |
 | Elevator fault (`CA_SV_CS2_TRQ_P` set to 0), recorder and cross-fault test | scripts written, not flown yet |
@@ -89,6 +90,33 @@ python scripts/plot_demo.py out/r_probs.csv f1 n1 out/demo.png
 ```
 
 The arguments are: name, takeoff altitude, loiter radius, fault, seconds before the fault. The recorded set used `n4 28 110`, `n5 32 95`, `n6 25 120` and the matching `f` flights with the same numbers and fault times of 55, 42 and 48 seconds. The settings of the first six flights (n1 to n3, f1 to f3) were not written down. Flight logs are about 40 MB each and are not committed.
+
+## Smaller and slower faults, and simple rules against the model (SIH, 2026-11-21)
+
+Eighteen more SIH flights with harder faults: weak engine (thrust down to 33 percent, `SIH_T_MAX` 6 to 2), weak elevator (`CA_SV_CS1_TRQ_P` set to 3, so the allocator moves the elevator a third as far) and slow engine failure (thrust fades to zero in ten steps, about 20 s of simulation time). The weak engine still makes the plane sink about 1.3 m/s.
+
+Trained only on the big, sudden faults (normal, engine cut, elevator cut) and tested on the new ones: weak engine 6/6 (median 2.4 s), weak elevator 6/6 (1.6 s), slow engine failure 6/6 but only after about 12 s, when roughly 40 percent of the thrust is left. No alarms before any fault.
+
+Then all 36 flights, leave-one-flight-out, against simple rules that watch one feature and get their threshold from the normal seconds of the other flights (`scripts/baseline_eval.py`). Same alarm rule for all (3 seconds in a row). Median delay per fault type:
+
+| Method | Engine cut | Elevator cut | Weak engine | Weak elevator | Slow engine failure |
+| --- | --- | --- | --- | --- | --- |
+| Random forest | 1.7 s | 1.6 s | 2.4 s | 1.6 s | 5.0 s |
+| Rule: climb rate | 2.9 s | 2.6 s | 3.5 s | missed 6/6 | 6.2 s |
+| Rule: altitude error | 5.3 s | 5.6 s | 5.8 s | missed 6/6 | 10.4 s |
+| Rule: pitch tracking spread | 2.3 s | 1.6 s | 2.4 s | 1.6 s | 14.0 s |
+
+No method had a false alarm on the six normal flights or before any fault. On the big faults a single good rule is almost as fast as the model; the difference shows on the harder ones. Rules that watch height never see the weak elevator, and the pitch rule needs 14 s for the slow engine failure. The model combines both kinds of signal and is the fastest or tied fastest on every fault type. On the 18 Gazebo flights (only big faults) the best rule matched the model's 2.05 s but raised 3 alarm seconds before faults; the model raised none (`results/gazebo/baselines_18.csv`).
+
+Alarm settings (`scripts/threshold_curve.py`): on these flights the threshold could go anywhere from 0.35 to 0.65 without a false alarm, and requiring only 1 raw alarm instead of 3 would be about 2 s faster with no false alarms. The 3-in-a-row rule is kept as protection against noise and wind, which these flights do not have.
+
+![Alarm settings in Gazebo: faults found, median delay and false-alarm seconds against the probability threshold for 1, 3 and 5 raw alarms in a row](docs/threshold_gazebo.png)
+
+What the model relies on (`scripts/feature_chart.py`): how unsteady the flight gets, mostly the spread of pitch tracking, climb rate and, in Gazebo, roll tracking.
+
+![Feature importance of the random forest in SIH and Gazebo](docs/feature_importance.png)
+
+Limits: one simulator for the harder faults, 6 flights per type, no wind, and the weak elevator is emulated through the control allocator, not a physical surface model.
 
 ## Elevator fault in Gazebo (rc_cessna, 2026-11-21)
 
