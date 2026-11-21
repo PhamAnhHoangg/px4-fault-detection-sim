@@ -2,11 +2,45 @@
   "rate_limit_per_min": 20,
   "px4": {
     "param_allow": {
-      "FW_THR_MIN": [0, 1],
-      "FW_THR_MAX": [0, 1],
-      "SIH_T_MAX": [0, 10],
-      "CA_SV_CS2_TRQ_P": [0, 1]
+      "FW_THR_MIN": [
+        0,
+        1
+      ],
+      "FW_THR_MAX": [
+        0,
+        1
+      ],
+      "SIH_T_MAX": [
+        0,
+        10
+      ],
+      "CA_SV_CS2_TRQ_P": [
+        0,
+        1
+      ]
     },
     "real_hardware": false
+  },
+  "ros2": {
+    "param_allow": {
+      "/talker": [
+        "max_speed"
+      ]
+    },
+    "service_allow": [
+      "/reset"
+    ],
+    "topic_pub_allow": [
+      "/cmd_vel"
+    ],
+    "launch_allow": [
+      [
+        "my_package",
+        "demo.launch.py"
+      ]
+    ],
+    "bag_dir": "/home/you/bags",
+    "real_hardware": true,
+    "launch_max_seconds": 600
   }
 }

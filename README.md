@@ -161,7 +161,7 @@ scripts/
   live/live_detector.py   live detector over MAVLink with plot window
   live/dashboard.py       browser dashboard (live with --serve, or replay of a CSV)
   live/dashboard.html     the dashboard page
-tools/robotics-mcp/       MCP server for PX4 with ask and lazy permission modes and a shared safety layer (tested in SIH)
+tools/robotics-mcp/       MCP servers for PX4 (tested in SIH) and ROS 2 (tested against a stand-in) with ask and lazy permission modes and a shared safety layer
 tools/screen-recorder-mcp/  MCP server to screenshot and record the screen or a window (tested on Linux, not yet on Windows)
 results/sih/              summary, per-second probabilities, figure
 results/gazebo/           feature table, summary, per-second probabilities, figure

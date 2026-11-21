@@ -23,7 +23,7 @@ jobs:
       - name: Robotics MCP tests
         run: |
           pip install "mcp>=2,<3"
-          cd tools/robotics-mcp && python test_robotics.py
+          cd tools/robotics-mcp && python test_robotics.py && python test_ros2.py
       - name: Dashboard server test
         run: python tests/test_dashboard.py
       - name: Shell scripts parse

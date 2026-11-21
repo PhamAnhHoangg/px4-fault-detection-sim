@@ -1,6 +1,6 @@
 # robotics-mcp
 
-MCP servers that let Claude work inside robotics tools, with a shared safety layer that you control. First server: PX4 (simulation). Planned on the same layer: ROS 2, Arduino (`arduino-cli`), ABB RobotStudio (read only first). Only PX4 exists today.
+MCP servers that let Claude work inside robotics tools, with a shared safety layer that you control. Servers so far: PX4 (simulation, tested against a real SIH flight) and ROS 2 (tested only against a stand-in `ros2`, see below). Planned on the same layer: Arduino (`arduino-cli`), ABB RobotStudio (read only first).
 
 ## Two modes
 
@@ -31,6 +31,20 @@ Honest limits: this protects against instructions hidden in tool output (a log l
 
 `px4_status`, `px4_get_param` (read); `px4_set_param` (allowlisted, range checked), `px4_inject_fault` (`engine_gazebo`, `engine_sih`, `elevator`; originals are saved), `px4_clear_faults` (write); `px4_run_eval` (runs `scripts/detect_eval.py` on a table inside the repo); `guard_status`.
 
+## ROS 2 server tools
+
+Read: `ros2_list_nodes`, `ros2_list_topics`, `ros2_topic_info`, `ros2_echo_once` (time limit 20 s), `ros2_list_services`, `ros2_list_params`, `ros2_get_param`, `ros2_bag_info` (only inside `ros2.bag_dir`), `ros2_launch_log`, `ros2_stop` (stopping is always allowed). Write (scope `ros2:write`): `ros2_set_param` and `ros2_call_service`, both only for the node/parameter pairs and services you list in `config.json`. Physical (scope `ros2:motion`): `ros2_publish_once` (one message, only to listed topics) and `ros2_launch` (only listed package and launch file pairs, stops itself after `launch_max_seconds`).
+
+ROS 2 cannot tell a simulation from a robot, so `ros2.real_hardware` is true by default: publishing and launching then need your approval every time, even in lazy mode. Set it to false in `config.json` only for a simulation. Everything coming back from the system (topic messages, logs) is returned in an `untrusted_output` field, because a message can contain text meant to trick the model; the server instructions tell Claude not to follow it. Names are validated (no leading dash, no spaces or shell characters), no shell is used, output is cut at 4000 characters, and messages must be a YAML mapping starting with `{`.
+
+The server calls the `ros2` command line tool, so start it from a shell where ROS 2 is sourced, for example in Claude Desktop on Windows with WSL:
+
+```
+"ros2": { "command": "wsl.exe", "args": ["bash", "-lc", "source /opt/ros/jazzy/setup.bash && python3 ~/robotics-mcp/ros2_server.py"] }
+```
+
+(replace `jazzy` with your distro, and give the WSL environment `ROBOTICS_MCP_DIR` the same folder you use for grants, otherwise your `grant` and `approve` commands and the server look at different folders).
+
 ## Install
 
 ```
@@ -49,3 +63,5 @@ If PX4 runs in WSL2 and the server on Windows, the UDP port may not be reachable
 ## Tested
 
 Unit tests (`python test_robotics.py`, 16 tests, no simulator needed): approval flow, single use, exact-call match, deny, grant scope, expiry, tampered grant, real hardware rule, error fallback, rate limit, allowlist beats grant, fault inject and clear restore the originals. End to end in the sandbox: the server started as a real MCP stdio process, a client listed the tools and ran status, parameter read, fault injection with approval, a denied non-allowlisted parameter, lazy-mode clear, and the evaluation on a PX4 SIH simulation (3 repeated runs). Not tested: Gazebo, Windows, Claude Desktop itself, real hardware.
+
+ROS 2 server: 10 unit tests (`python test_ros2.py`) run against `fake_ros2.py`, a stand-in that prints what the real tool prints for the commands used, plus one MCP stdio run (tool list, a read, a publish that correctly asked for approval). ROS 2 itself was not installed where this was written, so real output formats, `ros2 launch` behaviour and parameter value parsing are untested. Please run `ros2_list_topics` and `ros2_echo_once` on your machine first and tell me what breaks.
