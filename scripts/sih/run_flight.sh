@@ -1,6 +1,6 @@
 #!/bin/bash
 # Tested draft of the SIH flight recorder (headless PX4 SIH fixed-wing, airframe 10041_sihsim_airplane).
-# usage: run_flight.sh <name> <takeoff_alt> <loiter_rad> <fault: none|engine|elevator> <fault_after_s_wall>
+# usage: run_flight.sh <name> <takeoff_alt> <loiter_rad> <fault: none|engine|elevator|engine_weak|elevator_weak|engine_ramp> <fault_after_s_wall>
 # env:   PX4_DIR (default $HOME/PX4-Autopilot), OUT (default ./out)
 # engine = SIH_T_MAX set to 0. The PX4 command `failure motor off` has no effect in SIH.
 # elevator = CA_SV_CS1_TRQ_P set to 0 (in SIH airframe 10041 control surface 1 is the elevator, type 3).
@@ -20,8 +20,13 @@ sleep 2
 "$B/bin/px4-commander" takeoff >/dev/null 2>&1
 sleep "$AFTER"
 case "$FAULT" in
-  engine)   $P set SIH_T_MAX 0 > "$OUT/$NAME.inject.txt" 2>&1 ;;
-  elevator) $P set CA_SV_CS1_TRQ_P 0 > "$OUT/$NAME.inject.txt" 2>&1 ;;
+  engine)        $P set SIH_T_MAX 0 > "$OUT/$NAME.inject.txt" 2>&1 ;;
+  elevator)      $P set CA_SV_CS1_TRQ_P 0 > "$OUT/$NAME.inject.txt" 2>&1 ;;
+  # smaller and slower faults
+  engine_weak)   $P set SIH_T_MAX 2 > "$OUT/$NAME.inject.txt" 2>&1 ;;          # thrust 6 -> 2 (33 percent)
+  elevator_weak) $P set CA_SV_CS1_TRQ_P 3 > "$OUT/$NAME.inject.txt" 2>&1 ;;    # allocator thinks the elevator is 3x stronger, so it moves it 1/3 as far
+  engine_ramp)   for v in 5.4 4.8 4.2 3.6 3 2.4 1.8 1.2 0.6 0; do             # thrust fades to 0 over 10 s of wall time
+                   $P set SIH_T_MAX $v >> "$OUT/$NAME.inject.txt" 2>&1; sleep 1; done ;;
 esac
 sleep 25
 "$B/bin/px4-commander" disarm -f >/dev/null 2>&1; sleep 3

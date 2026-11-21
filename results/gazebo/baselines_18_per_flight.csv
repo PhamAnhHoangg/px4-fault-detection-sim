@@ -1,0 +1,109 @@
+flight,method,kind,detected,delay,false_s
+e1,random forest,fault,True,1.7,0
+e1,altitude error (5 s mean),fault,True,12.7,0
+e1,climb rate (5 s mean),fault,True,3.7,0
+e1,altitude change over 10 s,fault,True,3.7,0
+e1,pitch tracking spread (5 s std),fault,True,1.7,0
+e1,altitude error OR pitch spread,fault,True,1.7,0
+e2,random forest,fault,True,1.6,0
+e2,altitude error (5 s mean),fault,False,,0
+e2,climb rate (5 s mean),fault,True,3.6,0
+e2,altitude change over 10 s,fault,True,3.6,0
+e2,pitch tracking spread (5 s std),fault,True,1.6,0
+e2,altitude error OR pitch spread,fault,True,1.6,0
+e3,random forest,fault,True,1.8,0
+e3,altitude error (5 s mean),fault,True,6.8,0
+e3,climb rate (5 s mean),fault,False,,0
+e3,altitude change over 10 s,fault,True,3.8,0
+e3,pitch tracking spread (5 s std),fault,True,1.8,0
+e3,altitude error OR pitch spread,fault,True,1.8,0
+e4,random forest,fault,True,1.9,0
+e4,altitude error (5 s mean),fault,True,11.9,0
+e4,climb rate (5 s mean),fault,False,,0
+e4,altitude change over 10 s,fault,True,2.9,0
+e4,pitch tracking spread (5 s std),fault,True,1.9,0
+e4,altitude error OR pitch spread,fault,True,1.9,0
+e5,random forest,fault,True,2.0,0
+e5,altitude error (5 s mean),fault,True,12.0,0
+e5,climb rate (5 s mean),fault,True,4.0,0
+e5,altitude change over 10 s,fault,True,3.0,0
+e5,pitch tracking spread (5 s std),fault,True,2.0,0
+e5,altitude error OR pitch spread,fault,True,2.0,0
+e6,random forest,fault,True,1.9,0
+e6,altitude error (5 s mean),fault,True,11.9,0
+e6,climb rate (5 s mean),fault,False,,0
+e6,altitude change over 10 s,fault,True,2.9,0
+e6,pitch tracking spread (5 s std),fault,True,1.9,0
+e6,altitude error OR pitch spread,fault,True,1.9,0
+f1,random forest,fault,True,3.5,0
+f1,altitude error (5 s mean),fault,True,6.5,0
+f1,climb rate (5 s mean),fault,True,4.5,0
+f1,altitude change over 10 s,fault,True,4.5,0
+f1,pitch tracking spread (5 s std),fault,True,3.5,3
+f1,altitude error OR pitch spread,fault,True,3.5,3
+f2,random forest,fault,True,2.7,0
+f2,altitude error (5 s mean),fault,True,6.7,0
+f2,climb rate (5 s mean),fault,True,4.7,0
+f2,altitude change over 10 s,fault,True,4.7,0
+f2,pitch tracking spread (5 s std),fault,True,2.7,0
+f2,altitude error OR pitch spread,fault,True,2.7,0
+f3,random forest,fault,True,2.5,0
+f3,altitude error (5 s mean),fault,True,5.5,0
+f3,climb rate (5 s mean),fault,True,4.5,0
+f3,altitude change over 10 s,fault,True,3.5,0
+f3,pitch tracking spread (5 s std),fault,True,2.5,0
+f3,altitude error OR pitch spread,fault,True,2.5,0
+f4,random forest,fault,True,2.7,0
+f4,altitude error (5 s mean),fault,True,5.7,0
+f4,climb rate (5 s mean),fault,True,3.7,0
+f4,altitude change over 10 s,fault,True,4.7,0
+f4,pitch tracking spread (5 s std),fault,True,2.7,0
+f4,altitude error OR pitch spread,fault,True,2.7,0
+f5,random forest,fault,True,2.6,0
+f5,altitude error (5 s mean),fault,True,6.6,0
+f5,climb rate (5 s mean),fault,True,4.6,0
+f5,altitude change over 10 s,fault,True,4.6,0
+f5,pitch tracking spread (5 s std),fault,True,2.6,0
+f5,altitude error OR pitch spread,fault,True,2.6,0
+f6,random forest,fault,True,2.1,0
+f6,altitude error (5 s mean),fault,True,5.1,0
+f6,climb rate (5 s mean),fault,True,4.1,0
+f6,altitude change over 10 s,fault,True,4.1,0
+f6,pitch tracking spread (5 s std),fault,True,2.1,0
+f6,altitude error OR pitch spread,fault,True,2.1,0
+n1,random forest,normal,,,0
+n1,altitude error (5 s mean),normal,,,0
+n1,climb rate (5 s mean),normal,,,0
+n1,altitude change over 10 s,normal,,,0
+n1,pitch tracking spread (5 s std),normal,,,0
+n1,altitude error OR pitch spread,normal,,,0
+n2,random forest,normal,,,0
+n2,altitude error (5 s mean),normal,,,0
+n2,climb rate (5 s mean),normal,,,0
+n2,altitude change over 10 s,normal,,,0
+n2,pitch tracking spread (5 s std),normal,,,0
+n2,altitude error OR pitch spread,normal,,,0
+n3,random forest,normal,,,0
+n3,altitude error (5 s mean),normal,,,0
+n3,climb rate (5 s mean),normal,,,0
+n3,altitude change over 10 s,normal,,,0
+n3,pitch tracking spread (5 s std),normal,,,0
+n3,altitude error OR pitch spread,normal,,,0
+n4,random forest,normal,,,0
+n4,altitude error (5 s mean),normal,,,0
+n4,climb rate (5 s mean),normal,,,0
+n4,altitude change over 10 s,normal,,,0
+n4,pitch tracking spread (5 s std),normal,,,0
+n4,altitude error OR pitch spread,normal,,,0
+n5,random forest,normal,,,0
+n5,altitude error (5 s mean),normal,,,0
+n5,climb rate (5 s mean),normal,,,20
+n5,altitude change over 10 s,normal,,,0
+n5,pitch tracking spread (5 s std),normal,,,0
+n5,altitude error OR pitch spread,normal,,,0
+n6,random forest,normal,,,0
+n6,altitude error (5 s mean),normal,,,0
+n6,climb rate (5 s mean),normal,,,0
+n6,altitude change over 10 s,normal,,,0
+n6,pitch tracking spread (5 s std),normal,,,0
+n6,altitude error OR pitch spread,normal,,,0

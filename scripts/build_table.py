@@ -38,9 +38,18 @@ def build(path):
     att, atts = topic(u, "vehicle_attitude"), topic(u, "vehicle_attitude_setpoint")
     trip, mot = topic(u, "position_setpoint_triplet"), topic(u, "actuator_motors")
 
-    fault_us = None
+    # Fault start = first time after arming that a fault parameter is set LOWER than its value before
+    # (covers a cut to 0, a partial loss, and the first step of a slow ramp). Exception: CA_SV_CS*_TRQ_P set HIGHER
+    # than 1 also counts (the allocator then moves the surface less: a weak control surface).
+    fault_us = None; last = {k: v for k, v in u.initial_parameters.items() if k in FAULT_PARAMS}
     for ts, name, val in u.changed_parameters:
-        if name in FAULT_PARAMS and val == 0:
+        if name not in FAULT_PARAMS:
+            continue
+        prev = last.get(name); last[name] = val
+        if ts <= t_arm or prev is None or fault_us is not None:
+            continue
+        weaker = val < prev or (name.startswith("CA_SV_CS") and val > prev and val > 1)
+        if weaker:
             fault_us = ts
     t0 = t_arm + SETTLE_S * 1_000_000
     if int(u.last_timestamp) <= t0:
