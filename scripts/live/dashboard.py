@@ -119,8 +119,10 @@ def open_tab(url):
     import os, shutil, subprocess, webbrowser
     try:
         if "microsoft" in open("/proc/version").read().lower():
-            for cmd in (["wslview", url], ["explorer.exe", url], ["cmd.exe", "/c", "start", "", url]):
-                if shutil.which(cmd[0]):
+            # full paths too: some WSL setups do not put Windows programs on PATH
+            for cmd in (["wslview", url], ["explorer.exe", url], ["/mnt/c/Windows/explorer.exe", url],
+                        ["cmd.exe", "/c", "start", "", url], ["/mnt/c/Windows/System32/cmd.exe", "/c", "start", "", url]):
+                if shutil.which(cmd[0]) or os.path.isfile(cmd[0]):
                     subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd="/")
                     return True
     except OSError:

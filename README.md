@@ -6,6 +6,11 @@ Status: early. The detector works on 12 flights in PX4's built-in simulator (SIH
 
 A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the engine at a known time, and measures how well the detector finds it. The detector follows the method of the separate project [alfa-fault-detection](https://github.com/PhamAnhHoangg/alfa-fault-detection).
 
+
+![Dashboard replay of a recorded Gazebo flight: the engine is cut at 25 s, the alarm turns red 2.6 s later, and the plane glides to the ground](docs/demo_dashboard.gif)
+
+*Replay of a real live run in Gazebo (`results/gazebo/live_engine_demo.csv`), made with `scripts/live/make_demo_gif.py`. Engine cut at 25.4 s, alarm at 28 s, no alarm before the cut, plane on the ground about 20 s later.*
+
 ## What works today
 
 | Part | State |
