@@ -1,13 +1,17 @@
 """Build a per-second feature table from PX4 ULog flights, using the ALFA project's windowing:
 5 s rolling mean, 5 s rolling std, 10 s change of each signal. Label = 1 from the fault second on.
 Fault time = moment SIH_T_MAX (SIH), FW_THR_MAX (Gazebo engine) or CA_SV_CS2_TRQ_P (Gazebo elevator) was set to 0, read from the ULog parameter changes.
-SET env SETTLE_S to change how many seconds after arming the table starts (default 30).
+SET env SETTLE_S to change how many seconds after arming the table starts (default 30). Env NOISE=1 adds typical sensor noise (robustness test).
 Usage: python build_table.py out.csv flight1.ulg flight2.ulg ..."""
 import sys, os, numpy as np, pandas as pd
 from pyulog import ULog
 
 SETTLE_S = int(os.environ.get("SETTLE_S", 30))  # skip the climb: start after this many seconds of flight
-FAULT_PARAMS = ("SIH_T_MAX", "FW_THR_MAX", "CA_SV_CS2_TRQ_P")  # a change of one of these to 0 marks the fault second
+FAULT_PARAMS = ("SIH_T_MAX", "FW_THR_MAX", "CA_SV_CS2_TRQ_P", "CA_SV_CS1_TRQ_P")  # CS1 = elevator in SIH, CS2 = elevator in the Gazebo Cessna  # a change of one of these to 0 marks the fault second
+NOISE = float(os.environ.get("NOISE", 0))  # robustness test: 0 = none, 1 = typical sensor noise, see NOISE_STD
+# Noise added to the per-second signals at NOISE = 1 (standard deviations): altitude 1 m (GPS-like), climb rate 0.3 m/s,
+# distance to the loiter circle 1.5 m, attitude gaps 0.01 rad (about 0.6 degrees). White noise per second, seeded per flight.
+NOISE_STD = {"alt": 1.0, "vel_lin_z": 0.3, "xtrack_error": 1.5, "roll_gap": 0.01, "pitch_gap": 0.01, "yaw_gap": 0.01}
 POST_FAULT_CAP = 30  # same cap idea as ALFA (evalkit.load(cap=30))
 
 def euler(q):  # q = w,x,y,z
@@ -70,6 +74,15 @@ def build(path):
     rb, pb, yb = (per_sec(atts, v) for v in (rs, ps, ys))
     sig["roll_gap"] = wrap(ra.sub(rb, fill_value=np.nan)); sig["pitch_gap"] = wrap(pa.sub(pb, fill_value=np.nan))
     sig["yaw_gap"] = wrap(ya.sub(yb, fill_value=np.nan))
+
+    if NOISE > 0:
+        import zlib
+        rng = np.random.default_rng(zlib.crc32(os.path.basename(path).encode()))
+        n = lambda x, k: x + rng.normal(0, NOISE * NOISE_STD[k], len(x))
+        alt_noisy = n(alt, "alt")
+        sig["alt_error"] = alt_sp.sub(alt_noisy, fill_value=np.nan); sig["hud_altitude"] = alt_noisy
+        for k in ("vel_lin_z", "xtrack_error", "roll_gap", "pitch_gap", "yaw_gap"):
+            sig[k] = n(sig[k], k)
 
     end_s = int((u.last_timestamp - t0) // 1_000_000)
     fault_s = None if fault_us is None else (fault_us - t0) / 1e6

@@ -19,6 +19,7 @@ A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the
 | Scripted Gazebo flights (`scripts/gazebo/run_flight_gz.sh`, version 3, batch `record_set.sh`) | works, 12 flights recorded on 2026-11-20 (6 normal, 6 engine cut) |
 | Detector on the 12 Gazebo flights | works, see results below |
 | Experimental, parked: vision detector from an onboard camera (`scripts/vision`, [docs/VISION.md](docs/VISION.md)) | OpenCV part tested on synthetic frames only; not part of the results |
+| Elevator fault and transfer between fault types, noise robustness | SIH, 18 flights (2026-11-21), see below; Gazebo not yet |
 | Browser dashboard of the live signals (`scripts/live/dashboard.py`) | works in SIH and in replay (2026-11-20); Gazebo and Windows browser not checked |
 | Detector running live while the plane flies (`scripts/live/live_detector.py`) | works in SIH (checked against the flight log) and in one Gazebo flight with the plot window open (2026-11-20) |
 | Elevator fault (`CA_SV_CS2_TRQ_P` set to 0), recorder and cross-fault test | scripts written, not flown yet |
@@ -78,6 +79,31 @@ python scripts/plot_demo.py out/r_probs.csv f1 n1 out/demo.png
 ```
 
 The arguments are: name, takeoff altitude, loiter radius, fault, seconds before the fault. The recorded set used `n4 28 110`, `n5 32 95`, `n6 25 120` and the matching `f` flights with the same numbers and fault times of 55, 42 and 48 seconds. The settings of the first six flights (n1 to n3, f1 to f3) were not written down. Flight logs are about 40 MB each and are not committed.
+
+## Elevator fault and noise (SIH, 2026-11-21)
+
+Elevator fault: `CA_SV_CS1_TRQ_P` set to 0, so the control allocator stops moving the elevator (control surface 1 in SIH airframe 10041; in the Gazebo Cessna it is surface 2). Six flights (`scripts/sih/run_flight.sh eN ... elevator ...`). The plane stays flyable: it pitches up, climbs about 20 m above its target height, slows from 14 to 9 m/s and settles. An engine cut does the opposite (the plane sinks below the target).
+
+| Test | Detected | Median delay | False alarms |
+| --- | --- | --- | --- |
+| Trained on normal + engine cut, tested on elevator (never seen) | 6 / 6 | 1.65 s | none before the fault |
+| Trained on normal + elevator, tested on engine cut | 6 / 6 | 2.4 s | none before the fault |
+| Leave-one-flight-out on all 18 flights (both faults in training) | 12 / 12 | 1.75 s | 0 / 6 normal flights |
+
+The detector transfers between the two faults because the strongest features describe how unsteady pitch and altitude become (pitch gap spread, 10 s altitude change, climb rate), not the direction of the change. Limits: one simulator, 6 flights per fault, no wind, and both faults are large and sudden. A smaller or slower fault would be a harder test.
+
+Noise test: `NOISE=k python scripts/build_table.py ...` adds white noise per second to the signals (at k = 1: altitude 1 m, climb rate 0.3 m/s, loiter distance 1.5 m, attitude 0.6 degrees), then the same leave-one-flight-out evaluation on the 12 engine-cut set.
+
+| Noise k | Detected | Median delay | False alarms |
+| --- | --- | --- | --- |
+| 0 | 6 / 6 | 1.9 s | 0 |
+| 1 | 6 / 6 | 2.4 s | 0 |
+| 2 | 6 / 6 | 2.5 s | 0 |
+| 4 | 6 / 6 | 4.1 s | 0 |
+| 8 | 6 / 6 | 7.6 s | 1 normal flight |
+| 16 | 4 / 6 | 9.2 s | 1 second before a cut |
+
+Training and testing use the same noise level. White noise per second is a simple model; real GPS error drifts slowly, which may be harder. Files: `results/sih/noise_summary.csv`, `cross_train_*.csv`, `loo_engine_and_elevator_summary.csv`, `table_sih_18.csv`.
 
 ## Live detector (new, SIH tested)
 
