@@ -3,6 +3,7 @@
 #   scripts/sim.sh start [target]   start PX4 (default target gz_rc_cessna; gz_rc_cessna_cam = with forward camera;
 #                                   sihsim_airplane for SIH) and reset the fault parameters
 #   scripts/sim.sh status           running or not, and FW_THR_MAX / FW_THR_MIN
+#   scripts/sim.sh takeoff          arm and take off (same as commander takeoff in pxh)
 #   scripts/sim.sh attach           open the pxh> console (leave it again with Ctrl+b then d; Ctrl+c would stop PX4)
 #   scripts/sim.sh log              last lines of the simulator output
 #   scripts/sim.sh stop             shut PX4 and Gazebo down
@@ -54,6 +55,10 @@ case "${1:-}" in
     if running; then
       echo "running"; pparam show FW_THR_MAX | grep FW_THR_MAX; pparam show FW_THR_MIN | grep FW_THR_MIN
     else echo "not running"; fi
+    ;;
+  takeoff)
+    running || { echo "not running"; exit 1; }
+    (cd "$B/rootfs" && "$B/bin/px4-commander" takeoff) && echo "takeoff sent"
     ;;
   attach) need_tmux; running && tmux attach -t $S || echo "not running" ;;
   log) tail -n "${2:-40}" "$LOG" 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' | tr -d '\r' ;;
