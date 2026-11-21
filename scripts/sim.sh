@@ -36,6 +36,11 @@ case "${1:-}" in
     AUTOSTART=${SIM_AUTOSTART:-$AUTOSTART}
     if [ -n "$AUTOSTART" ]; then
       [ -x "$B/bin/px4" ] || { echo "PX4 is not built yet: run  make px4_sitl  in $PX4_DIR once"; exit 1; }
+      # PX4 loads the model from its own models folder, so put a link to ours there (only a symlink, nothing is overwritten)
+      MODEL=${TARGET#gz_}; MDIR="$PX4_DIR/Tools/simulation/gz/models"
+      if [ -d "$REPO/sim/models/$MODEL" ] && [ -d "$MDIR" ] && [ ! -e "$MDIR/$MODEL" ]; then
+        ln -s "$REPO/sim/models/$MODEL" "$MDIR/$MODEL" && echo "linked $MDIR/$MODEL -> $REPO/sim/models/$MODEL"
+      fi
       RUN="cd '$B/rootfs' && GZ_SIM_RESOURCE_PATH='$REPO/sim/models'\${GZ_SIM_RESOURCE_PATH:+:\$GZ_SIM_RESOURCE_PATH} PX4_SYS_AUTOSTART=$AUTOSTART PX4_SIM_MODEL=$TARGET $H '$B/bin/px4' '$B/etc' -s etc/init.d-posix/rcS -w '$B/rootfs'"
     else
       RUN="cd '$PX4_DIR' && $H make px4_sitl $TARGET"
