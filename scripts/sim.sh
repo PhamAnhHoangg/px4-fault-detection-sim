@@ -29,13 +29,15 @@ case "${1:-}" in
     pkill -f "bin/px4" 2>/dev/null; pkill -f "gz sim" 2>/dev/null; sleep 1
     : > "$LOG"
     # Models kept in this repo (sim/models) are started directly with an existing airframe, so PX4 itself is not edited
+    # PX4 hides the Gazebo window when HEADLESS is set to anything, even 0, so set it only for HEADLESS=1
+    if [ "${HEADLESS:-0}" = "1" ]; then H="HEADLESS=1"; else H="env -u HEADLESS"; fi
     case "$TARGET" in gz_rc_cessna_cam) AUTOSTART=4003 ;; *) AUTOSTART="" ;; esac
     AUTOSTART=${SIM_AUTOSTART:-$AUTOSTART}
     if [ -n "$AUTOSTART" ]; then
       [ -x "$B/bin/px4" ] || { echo "PX4 is not built yet: run  make px4_sitl  in $PX4_DIR once"; exit 1; }
-      RUN="cd '$B/rootfs' && GZ_SIM_RESOURCE_PATH='$REPO/sim/models'\${GZ_SIM_RESOURCE_PATH:+:\$GZ_SIM_RESOURCE_PATH} PX4_SYS_AUTOSTART=$AUTOSTART PX4_SIM_MODEL=$TARGET HEADLESS=${HEADLESS:-0} '$B/bin/px4' '$B/etc' -s etc/init.d-posix/rcS -w '$B/rootfs'"
+      RUN="cd '$B/rootfs' && GZ_SIM_RESOURCE_PATH='$REPO/sim/models'\${GZ_SIM_RESOURCE_PATH:+:\$GZ_SIM_RESOURCE_PATH} PX4_SYS_AUTOSTART=$AUTOSTART PX4_SIM_MODEL=$TARGET $H '$B/bin/px4' '$B/etc' -s etc/init.d-posix/rcS -w '$B/rootfs'"
     else
-      RUN="cd '$PX4_DIR' && HEADLESS=${HEADLESS:-0} make px4_sitl $TARGET"
+      RUN="cd '$PX4_DIR' && $H make px4_sitl $TARGET"
     fi
     tmux new-session -d -s $S -x 200 -y 50 "$RUN; echo '[simulator ended]'; sleep 5"
     tmux pipe-pane -o -t $S "cat >> '$LOG'"
