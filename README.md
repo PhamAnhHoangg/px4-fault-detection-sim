@@ -19,7 +19,8 @@ A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the
 | Scripted Gazebo flights (`scripts/gazebo/run_flight_gz.sh`, version 3, batch `record_set.sh`) | works, 12 flights recorded on 2026-11-20 (6 normal, 6 engine cut) |
 | Detector on the 12 Gazebo flights | works, see results below |
 | Experimental, parked: vision detector from an onboard camera (`scripts/vision`, [docs/VISION.md](docs/VISION.md)) | OpenCV part tested on synthetic frames only; not part of the results |
-| Elevator fault and transfer between fault types, noise robustness | SIH, 18 flights (2026-11-21), see below; Gazebo not yet |
+| Elevator fault and transfer between fault types | SIH and Gazebo, 18 flights each (2026-11-21), see below |
+| Noise robustness | SIH only |
 | Browser dashboard of the live signals (`scripts/live/dashboard.py`) | works in SIH and in replay (2026-11-20); Gazebo and Windows browser not checked |
 | Detector running live while the plane flies (`scripts/live/live_detector.py`) | works in SIH (checked against the flight log) and in one Gazebo flight with the plot window open (2026-11-20) |
 | Elevator fault (`CA_SV_CS2_TRQ_P` set to 0), recorder and cross-fault test | scripts written, not flown yet |
@@ -80,6 +81,19 @@ python scripts/plot_demo.py out/r_probs.csv f1 n1 out/demo.png
 
 The arguments are: name, takeoff altitude, loiter radius, fault, seconds before the fault. The recorded set used `n4 28 110`, `n5 32 95`, `n6 25 120` and the matching `f` flights with the same numbers and fault times of 55, 42 and 48 seconds. The settings of the first six flights (n1 to n3, f1 to f3) were not written down. Flight logs are about 40 MB each and are not committed.
 
+## Elevator fault in Gazebo (rc_cessna, 2026-11-21)
+
+Six flights with `CA_SV_CS2_TRQ_P` set to 0 (`scripts/gazebo/record_set_elevator.sh`), same heights, circles and steady times as the 12 earlier Gazebo flights. In Gazebo this fault is mild: in the live test flight the height only swung 1 to 2 m around the target with a slow up-and-down motion, and the plane stayed flyable (in SIH it climbed about 20 m).
+
+| Test | Detected | Median delay | False alarms |
+| --- | --- | --- | --- |
+| Trained on normal + engine cut, tested on elevator (never seen) | 6 / 6 | 1.85 s | none before the fault |
+| Trained on normal + elevator, tested on engine cut | 6 / 6 | 2.65 s | none before the fault |
+| Leave-one-flight-out on all 18 flights | 12 / 12 | 2.05 s | 0 / 6 normal flights |
+| Live, engine-trained model, one elevator flight with the dashboard | alarm 1.8 s after the cut | | none before the cut, 10 of 10 samples per second |
+
+Same pattern as in SIH, in a second simulator with a much smaller visible effect. Limits stay the same: 6 flights per fault, no wind, sudden faults, and only two fault types.
+
 ## Elevator fault and noise (SIH, 2026-11-21)
 
 Elevator fault: `CA_SV_CS1_TRQ_P` set to 0, so the control allocator stops moving the elevator (control surface 1 in SIH airframe 10041; in the Gazebo Cessna it is surface 2). Six flights (`scripts/sih/run_flight.sh eN ... elevator ...`). The plane stays flyable: it pitches up, climbs about 20 m above its target height, slows from 14 to 9 m/s and settles. An engine cut does the opposite (the plane sinks below the target).
@@ -131,7 +145,7 @@ Two Gazebo flights so far (rc_cessna, model trained on the 12 Gazebo flights, pl
 
 The offline median delay is 2.65 s. The probability stayed below 0.3 before the cut and was above 0.97 one to two seconds after it. Two flights show the live path works and say nothing about reliability. The screenshot is from live 2. The window needs `sudo apt install python3-tk` on WSL.
 
-Lost data: in the two flights above only 5 to 7 of the 10 altitude messages per second reached the script (the `n=` column) while the plot window was open, because the window refresh held up the reading. The script now reads MAVLink in a background thread. In a test with an artificially slow window (SIH, virtual screen) the old script dropped to 0 to 4 samples per second and the new one kept all 10. This has not been confirmed on WSLg yet: look for `n=10`.
+Lost data: in the two flights above only 5 to 7 of the 10 altitude messages per second reached the script (the `n=` column) while the plot window was open, because the window refresh held up the reading. The script now reads MAVLink in a background thread. In a test with an artificially slow window (SIH, virtual screen) the old script dropped to 0 to 4 samples per second and the new one kept all 10. Confirmed on WSLg on 2026-11-21 with the browser dashboard (`--no-plot`): 10 of 10 samples every second. Not yet re-checked with the plot window open.
 
 Notes:
 - The model that is saved was trained on all flights of the table, so its score on those flights means nothing. The honest numbers are the leave-one-flight-out ones above.

@@ -16,7 +16,7 @@ Status as of 2026-11-20. Done means checked by running it. Draft means written b
 - Done: leave-one-flight-out on 12 flights, compared with SIH.
 - Next: make the task harder, with other fault types, noisier flights, wind, and more flights.
 - Elevator fault: injection by setting `CA_SV_CS2_TRQ_P` to 0 (the allocator stops moving the elevator). Scripts exist (`record_set_elevator.sh`, `cross_fault.py`). First check by hand with the live script that the plane stays flyable and the fault does something visible.
-- Answered in SIH (2026-11-21): yes, 6 of 6 elevator faults found by an engine-trained model, and the other way round. Train on both: 12 of 12. Next: the same in Gazebo (surface CS2), and smaller or slower faults.
+- Answered in SIH (2026-11-21): yes, 6 of 6 elevator faults found by an engine-trained model, and the other way round. Train on both: 12 of 12. Gazebo done the same day: 6 of 6 both ways, 12 of 12 together, no false alarms. Next: smaller or slower faults.
 - Noise robustness in SIH: fine up to about 4 times typical sensor noise, breaks around 16 times. Next: slowly drifting noise and wind.
 
 ## 3. Live visual (first version done in SIH)
