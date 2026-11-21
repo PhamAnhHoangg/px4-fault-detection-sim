@@ -42,5 +42,18 @@
     "bag_dir": "/home/you/bags",
     "real_hardware": true,
     "launch_max_seconds": 600
+  },
+  "arduino": {
+    "sketches_dir": "/home/you/arduino-sketches",
+    "ports_allow": [
+      "/dev/ttyACM0"
+    ]
+  },
+  "robotstudio": {
+    "base_url": "http://127.0.0.1",
+    "version": 1,
+    "verify_tls": true,
+    "robot": "ROB_1",
+    "task": "T_ROB1"
   }
 }

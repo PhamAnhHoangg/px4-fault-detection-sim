@@ -1,6 +1,6 @@
 # robotics-mcp
 
-MCP servers that let Claude work inside robotics tools, with a shared safety layer that you control. Servers so far: PX4 (simulation, tested against a real SIH flight) and ROS 2 (tested only against a stand-in `ros2`, see below). Planned on the same layer: Arduino (`arduino-cli`), ABB RobotStudio (read only first).
+MCP servers that let Claude work inside robotics tools, with a shared safety layer that you control. Servers so far: PX4 (simulation, tested against a real SIH flight), ROS 2, Arduino and ABB RobotStudio (read only). The last three were tested only against stand-ins, see the end of this file.
 
 ## Two modes
 
@@ -45,13 +45,21 @@ The server calls the `ros2` command line tool, so start it from a shell where RO
 
 (replace `jazzy` with your distro, and give the WSL environment `ROBOTICS_MCP_DIR` the same folder you use for grants, otherwise your `grant` and `approve` commands and the server look at different folders).
 
+## Arduino server tools
+
+Free: `ard_list_boards`, `ard_read_sketch`, `ard_compile`, `ard_serial_read` (max 30 s, port must match `/dev/tty...` or `COMn`, and `arduino.ports_allow` if you set it). Needs permission (scope `arduino:write`): `ard_write_sketch`, only inside `arduino.sketches_dir`, max 100 KB, keeps the old file as `.bak`. Upload (`ard_upload`) changes a real board, so it needs your approval for that exact call every time, even in lazy mode. Needs `arduino-cli` on PATH and `pyserial` for the serial reader. Opening a serial port resets some boards (Uno, Nano). Compiler messages and serial lines come back as `untrusted_output`.
+
+## RobotStudio / ABB controller server tools (read only)
+
+Uses Robot Web Services over GET requests only; it cannot start the program, move the robot, set a signal or change RAPID (a write version would be a separate step, ask mode first). Tools: `rs_controller_state`, `rs_operation_mode`, `rs_execution_state`, `rs_list_signals`, `rs_get_signal`, `rs_get_rapid_variable`, `rs_joint_target`, `rs_robot_target`, and `rs_get` for exploring any `/rw/...` path. Config: `robotstudio.base_url`, `version` (1 = IRC5 or RobotStudio with RobotWare 6, HTTP and digest login; 2 = OmniCore, HTTPS and basic login), `verify_tls`, `robot`, `task`. Credentials come from the environment (`RWS_USER`, `RWS_PASSWORD`); the defaults are ABB's published `Default User` / `robotics`, which belong on a virtual controller only. On a real controller set your own user with read rights. RobotStudio runs on Windows, so run this server on Windows (or point `base_url` at the Windows machine).
+
 ## Install
 
 ```
 pip install -r requirements.txt
 ```
 
-Claude Desktop (`claude_desktop_config.json`), with the path of your own copy:
+`python make_config.py` (add `--wsl <distro>` for WSL) prints ready-made entries for `claude_desktop_config.json`; it never edits the file. By hand, for PX4 alone, with the path of your own copy:
 
 ```
 "mcpServers": { "px4": { "command": "python", "args": ["E:/tools/robotics-mcp/px4_server.py"],
@@ -63,5 +71,7 @@ If PX4 runs in WSL2 and the server on Windows, the UDP port may not be reachable
 ## Tested
 
 Unit tests (`python test_robotics.py`, 16 tests, no simulator needed): approval flow, single use, exact-call match, deny, grant scope, expiry, tampered grant, real hardware rule, error fallback, rate limit, allowlist beats grant, fault inject and clear restore the originals. End to end in the sandbox: the server started as a real MCP stdio process, a client listed the tools and ran status, parameter read, fault injection with approval, a denied non-allowlisted parameter, lazy-mode clear, and the evaluation on a PX4 SIH simulation (3 repeated runs). Not tested: Gazebo, Windows, Claude Desktop itself, real hardware.
+
+Arduino server: 5 unit tests (`python test_arduino.py`) against `fake_arduino_cli.py` and a fake serial reader. Not tested: real `arduino-cli` output, a real board, pyserial. RobotStudio server: 8 unit tests (`python test_robotstudio.py`) against a fake RWS HTTP server (digest and basic login, only GET sent, path checks, output limits). The resource paths follow ABB's published API but were not checked against a real controller: `ctrlstate` (version 1) is from memory, and the JSON shape is returned raw, not parsed. Use `rs_get` to explore if a tool returns 404.
 
 ROS 2 server: 10 unit tests (`python test_ros2.py`) run against `fake_ros2.py`, a stand-in that prints what the real tool prints for the commands used, plus one MCP stdio run (tool list, a read, a publish that correctly asked for approval). ROS 2 itself was not installed where this was written, so real output formats, `ros2 launch` behaviour and parameter value parsing are untested. Please run `ros2_list_topics` and `ros2_echo_once` on your machine first and tell me what breaks.
