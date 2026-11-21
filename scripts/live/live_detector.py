@@ -228,7 +228,8 @@ def main():
         for g, (a, s) in {"roll_gap": ("roll", "roll_sp"), "pitch_gap": ("pitch", "pitch_sp"), "yaw_gap": ("yaw", "yaw_sp")}.items():
             va, vs = acc[a].get(b), acc[s].get(b)
             series[g][b] = wrap(float(np.mean(va)) - float(np.mean(vs))) if va and vs else np.nan
-        row = {"t": b, "prob": np.nan, "raw": 0, "alarm": False, "samples": len(acc["hud_altitude"].get(b, []))}
+        row = {"t": b, "prob": np.nan, "raw": 0, "alarm": False, "samples": len(acc["hud_altitude"].get(b, [])),
+               "boot_s": (t0_ms + b * 1000) / 1000 if t0_ms is not None else np.nan}   # PX4 clock, to line up camera frames
         row.update({n: series[n][b] for n in SIGNALS})
         if b >= 10:
             f = features_for_bin(series, b)

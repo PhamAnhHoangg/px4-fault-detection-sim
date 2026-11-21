@@ -10,7 +10,9 @@ directly while the camera only sees its effect. The value of vision is that it d
 | --- | --- |
 | Horizon detection in OpenCV (`scripts/vision/horizon.py`) | done, tested on synthetic frames: tilt error under 0.1 degrees, height error under 0.01 image heights; all-sky and all-ground frames handled |
 | Vision alarm (`vision_detect.py`) and comparison (`compare_alarms.py`) | done, checked end to end on a synthetic flight (`demo_synthetic.py`): no alarm before the cut, alarm 5 s after it. Thresholds are first guesses |
-| Camera on the rc_cessna in Gazebo and a frame recorder | not started, needs the Gazebo machine |
+| Camera on the rc_cessna (`sim/models/rc_cessna_cam`, start with `scripts/sim.sh start gz_rc_cessna_cam`) | written, not run in Gazebo yet. PX4 is not edited: the model lives in this repo and starts with the normal Cessna airframe (4003) |
+| Frame recorder (`record_frames.py`, system Python with the Gazebo bindings) | written; PNG writer tested; not run against Gazebo yet |
+| Clock alignment: `live_detector.py` now logs `boot_s`, `compare_alarms.py` uses it | tested on synthetic data with a 41.5 s clock offset |
 | Real comparison flights | not started |
 
 ## How it works
@@ -21,16 +23,26 @@ fits a line with a small RANSAC and reports the tilt (`roll_deg`), the height of
 horizon rises in the image. `vision_detect.py` takes per-second means, a baseline from steady flight, and raises an
 alarm after 3 seconds in a row beyond the limits (same K = 3 as the telemetry detector).
 
-## Open questions for step 3
+## Open questions
 
-- Gazebo Harmonic Python bindings for receiving camera images (`gz.transport13`, `gz.msgs10`): check they are installed.
-- How to add a camera to the rc_cessna without editing PX4's own model (a separate model that includes it, plus an airframe).
-- Time axis: frames must be stamped with the same flight time as the telemetry CSV, otherwise the comparison is wrong.
+- Python bindings: confirmed installed on the Gazebo machine (2026-11-21). The rc_cessna has no image camera by default.
+- Assumption to check: PX4's clock in SITL follows the Gazebo clock, so frame names match `boot_s`.
 - The sky colour and lighting in the PX4 world: `SPLIT_MIN` and `SKY_BLUE_MIN` in `horizon.py` may need tuning on real frames.
 
-First checks to run on the Gazebo machine (simulator running):
+## Steps on the Gazebo machine
 
 ```
-python3 -c "import gz.transport13, gz.msgs10; print('bindings ok')"
-gz topic -l | head -40
+scripts/sim.sh stop
+scripts/sim.sh start gz_rc_cessna_cam
+gz topic -l | grep cessna_cam                       # should print /cessna_cam
+/usr/bin/python3 scripts/vision/record_frames.py --out out/frames_test --seconds 5
+python scripts/vision/horizon.py out/frames_test --csv out/horizon_test.csv
+```
+
+Then a flight: start `record_frames.py` (second window or in the background) and `live_detector.py --csv out/live_cam1.csv`
+with the usual engine cut, take off, and afterwards:
+
+```
+python scripts/vision/horizon.py out/frames_cam1 --csv out/horizon_cam1.csv
+python scripts/vision/compare_alarms.py out/live_cam1.csv out/horizon_cam1.csv
 ```

@@ -28,6 +28,7 @@ jobs:
         run: |
           python scripts/vision/test_horizon.py
           python scripts/vision/demo_synthetic.py
+          python scripts/vision/test_compare.py
       - name: Dashboard server test
         run: python tests/test_dashboard.py
       - name: Shell scripts parse

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Run the PX4 simulator in the background, so you need only one terminal.
-#   scripts/sim.sh start [target]   start PX4 (default target gz_rc_cessna; sihsim_airplane for SIH) and reset the fault parameters
+#   scripts/sim.sh start [target]   start PX4 (default target gz_rc_cessna; gz_rc_cessna_cam = with forward camera;
+#                                   sihsim_airplane for SIH) and reset the fault parameters
 #   scripts/sim.sh status           running or not, and FW_THR_MAX / FW_THR_MIN
 #   scripts/sim.sh attach           open the pxh> console (leave it again with Ctrl+b then d; Ctrl+c would stop PX4)
 #   scripts/sim.sh log              last lines of the simulator output
@@ -12,6 +13,7 @@ PX4_DIR=${PX4_DIR:-$HOME/PX4-Autopilot}
 B=$PX4_DIR/build/px4_sitl_default
 LOG=${SIM_LOG:-/tmp/px4sim.log}
 S=px4sim
+REPO=$(cd "$(dirname "$0")/.." && pwd)
 
 need_tmux() { command -v tmux >/dev/null || { echo "tmux is missing: run  sudo apt install tmux"; exit 1; }; }
 running() { tmux has-session -t $S 2>/dev/null; }
@@ -25,7 +27,16 @@ case "${1:-}" in
     [ -d "$PX4_DIR" ] || { echo "no PX4 at $PX4_DIR (set PX4_DIR)"; exit 1; }
     pkill -f "bin/px4" 2>/dev/null; pkill -f "gz sim" 2>/dev/null; sleep 1
     : > "$LOG"
-    tmux new-session -d -s $S -x 200 -y 50 "cd '$PX4_DIR' && HEADLESS=${HEADLESS:-0} make px4_sitl $TARGET; echo '[simulator ended]'; sleep 5"
+    # Models kept in this repo (sim/models) are started directly with an existing airframe, so PX4 itself is not edited
+    case "$TARGET" in gz_rc_cessna_cam) AUTOSTART=4003 ;; *) AUTOSTART="" ;; esac
+    AUTOSTART=${SIM_AUTOSTART:-$AUTOSTART}
+    if [ -n "$AUTOSTART" ]; then
+      [ -x "$B/bin/px4" ] || { echo "PX4 is not built yet: run  make px4_sitl  in $PX4_DIR once"; exit 1; }
+      RUN="cd '$B/rootfs' && GZ_SIM_RESOURCE_PATH='$REPO/sim/models'\${GZ_SIM_RESOURCE_PATH:+:\$GZ_SIM_RESOURCE_PATH} PX4_SYS_AUTOSTART=$AUTOSTART PX4_SIM_MODEL=$TARGET HEADLESS=${HEADLESS:-0} '$B/bin/px4' '$B/etc' -s etc/init.d-posix/rcS -w '$B/rootfs'"
+    else
+      RUN="cd '$PX4_DIR' && HEADLESS=${HEADLESS:-0} make px4_sitl $TARGET"
+    fi
+    tmux new-session -d -s $S -x 200 -y 50 "$RUN; echo '[simulator ended]'; sleep 5"
     tmux pipe-pane -o -t $S "cat >> '$LOG'"
     echo "starting $TARGET (the first start compiles and can take minutes); log: $LOG"
     for i in $(seq 1 120); do
