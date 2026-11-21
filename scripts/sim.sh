@@ -8,7 +8,8 @@
 #   scripts/sim.sh attach           open the pxh> console (leave it again with Ctrl+b then d; Ctrl+c would stop PX4)
 #   scripts/sim.sh log              last lines of the simulator output
 #   scripts/sim.sh stop             shut PX4 and Gazebo down
-# env: PX4_DIR (default $HOME/PX4-Autopilot), HEADLESS=1 for no Gazebo window, SIM_LOG (default /tmp/px4sim.log)
+# env: PX4_DIR (default $HOME/PX4-Autopilot), HEADLESS=1 for no Gazebo window, SIM_LOG (default /tmp/px4sim.log),
+#      SIM_WORLD (Gazebo world, e.g. windy_gusts after python sim/make_wind_setup.py; target gz_rc_cessna_wind)
 # Needs tmux (sudo apt install tmux). The simulator runs inside a tmux session named px4sim.
 set -u
 PX4_DIR=${PX4_DIR:-$HOME/PX4-Autopilot}
@@ -32,7 +33,9 @@ case "${1:-}" in
     # Models kept in this repo (sim/models) are started directly with an existing airframe, so PX4 itself is not edited
     # PX4 hides the Gazebo window when HEADLESS is set to anything, even 0, so set it only for HEADLESS=1
     if [ "${HEADLESS:-0}" = "1" ]; then H="HEADLESS=1"; else H="env -u HEADLESS"; fi
-    case "$TARGET" in gz_rc_cessna_cam|gz_rc_cessna_chase) AUTOSTART=4003 ;; *) AUTOSTART="" ;; esac
+    case "$TARGET" in gz_rc_cessna_cam|gz_rc_cessna_chase|gz_rc_cessna_wind) AUTOSTART=4003 ;; *) AUTOSTART="" ;; esac
+    # SIM_WORLD picks the Gazebo world (for example windy_gusts, made by sim/make_wind_setup.py); default: PX4's default
+    W=""; [ -n "${SIM_WORLD:-}" ] && W="PX4_GZ_WORLD=$SIM_WORLD"
     AUTOSTART=${SIM_AUTOSTART:-$AUTOSTART}
     if [ -n "$AUTOSTART" ]; then
       [ -x "$B/bin/px4" ] || { echo "PX4 is not built yet: run  make px4_sitl  in $PX4_DIR once"; exit 1; }
@@ -41,13 +44,13 @@ case "${1:-}" in
       if [ -d "$REPO/sim/models/$MODEL" ] && [ -d "$MDIR" ] && [ ! -e "$MDIR/$MODEL" ]; then
         ln -s "$REPO/sim/models/$MODEL" "$MDIR/$MODEL" && echo "linked $MDIR/$MODEL -> $REPO/sim/models/$MODEL"
       fi
-      RUN="cd '$B/rootfs' && GZ_SIM_RESOURCE_PATH='$REPO/sim/models'\${GZ_SIM_RESOURCE_PATH:+:\$GZ_SIM_RESOURCE_PATH} PX4_SYS_AUTOSTART=$AUTOSTART PX4_SIM_MODEL=$TARGET $H '$B/bin/px4' '$B/etc' -s etc/init.d-posix/rcS -w '$B/rootfs'"
+      RUN="cd '$B/rootfs' && GZ_SIM_RESOURCE_PATH='$REPO/sim/models'\${GZ_SIM_RESOURCE_PATH:+:\$GZ_SIM_RESOURCE_PATH} PX4_SYS_AUTOSTART=$AUTOSTART PX4_SIM_MODEL=$TARGET $W $H '$B/bin/px4' '$B/etc' -s etc/init.d-posix/rcS -w '$B/rootfs'"
     else
-      RUN="cd '$PX4_DIR' && $H make px4_sitl $TARGET"
+      RUN="cd '$PX4_DIR' && $W $H make px4_sitl $TARGET"
     fi
     tmux new-session -d -s $S -x 200 -y 50 "$RUN; echo '[simulator ended]'; sleep 5"
     tmux pipe-pane -o -t $S "cat >> '$LOG'"
-    echo "starting $TARGET (the first start compiles and can take minutes); log: $LOG"
+    echo "starting $TARGET${SIM_WORLD:+ in world $SIM_WORLD} (the first start compiles and can take minutes); log: $LOG"
     for i in $(seq 1 120); do
       out=$(pparam show FW_THR_MAX); echo "$out" | grep -q "FW_THR_MAX" && break
       running || { echo "simulator stopped while starting, see: scripts/sim.sh log"; exit 1; }

@@ -16,7 +16,17 @@ B=$PX4_DIR/build/px4_sitl_default
 LOG=$OUT/$NAME.script.log; : > "$LOG"
 say() { echo "$(date +%T) $*" | tee -a "$LOG"; }
 pkill -f "bin/px4" 2>/dev/null; pkill -f "gz sim" 2>/dev/null; sleep 3
-(cd "$PX4_DIR" && HEADLESS=${HEADLESS:-1} nohup make px4_sitl gz_rc_cessna > "$OUT/$NAME.px4.log" 2>&1 &)
+# SIM_TARGET (default gz_rc_cessna) and SIM_WORLD (default: PX4's default world) choose plane and world, e.g.
+# SIM_TARGET=gz_rc_cessna_wind SIM_WORLD=windy_gusts after python sim/make_wind_setup.py
+SIM_TARGET=${SIM_TARGET:-gz_rc_cessna}
+WENV=""; [ -n "${SIM_WORLD:-}" ] && WENV="PX4_GZ_WORLD=$SIM_WORLD"
+if [ "$SIM_TARGET" = "gz_rc_cessna" ]; then
+  (cd "$PX4_DIR" && env $WENV HEADLESS=${HEADLESS:-1} nohup make px4_sitl gz_rc_cessna > "$OUT/$NAME.px4.log" 2>&1 &)
+else   # models outside PX4 have no make target: start PX4 directly with the normal Cessna airframe (4003)
+  (cd "$B/rootfs" && env $WENV HEADLESS=${HEADLESS:-1} PX4_SYS_AUTOSTART=4003 PX4_SIM_MODEL=$SIM_TARGET \
+     nohup "$B/bin/px4" -d "$B/etc" -s etc/init.d-posix/rcS -w "$B/rootfs" < /dev/null > "$OUT/$NAME.px4.log" 2>&1 &)
+fi
+say "plane $SIM_TARGET, world ${SIM_WORLD:-default}"
 cd "$B/rootfs" 2>/dev/null || { say "no rootfs yet, waiting"; sleep 20; cd "$B/rootfs" || exit 1; }
 P=$B/bin/px4-param; C=$B/bin/px4-commander; L=$B/bin/px4-listener
 simtime() { "$L" vehicle_local_position 1 2>/dev/null | awk '/timestamp:/{print int($2/1000000); exit}'; }

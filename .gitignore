@@ -1,7 +1,8 @@
 # flight logs and generated tables are large and are not committed
+*.pyc
 *.ulg
+.venv/
+__pycache__/
 out/
 rootfs_*/
-__pycache__/
-*.pyc
-.venv/
+sim/generated/
