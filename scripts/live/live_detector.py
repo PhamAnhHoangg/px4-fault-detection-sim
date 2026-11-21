@@ -170,6 +170,7 @@ def main():
     ap.add_argument("--max-seconds", type=int, default=None, help="stop after this many seconds past the settle time")
     ap.add_argument("--serve", type=int, default=None, metavar="PORT", help="also serve a live web dashboard on this port (open http://localhost:PORT)")
     ap.add_argument("--host", default="127.0.0.1", help="address for --serve (default: this computer only)")
+    ap.add_argument("--no-open", action="store_true", help="with --serve: do not open a browser tab")
     ap.add_argument("--ui-delay-ms", type=int, default=0, help="testing only: make every plot refresh this much slower")
     ap.add_argument("--wait", type=int, default=60, help="seconds to wait for the first MAVLink heartbeat")
     args = ap.parse_args()
@@ -206,8 +207,11 @@ def main():
     if args.serve:
         import dashboard
         hub = dashboard.Hub(threshold=THRESH, mode="live")
-        dashboard.serve(hub, args.serve, args.host)
-        print(f"dashboard: open http://localhost:{args.serve}", flush=True)
+        srv = dashboard.serve(hub, args.serve, args.host)
+        url = f"http://localhost:{srv.server_address[1]}"
+        print(f"dashboard: {url}", flush=True)
+        if not args.no_open:
+            dashboard.open_tab(url)
     acc = defaultdict(lambda: defaultdict(list))  # signal -> bin -> samples
     series = {n: {} for n in SIGNALS}
     now_ms, arm_ms, t0_ms = 0, None, None

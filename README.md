@@ -113,7 +113,7 @@ Notes:
 
 ## Live dashboard (new)
 
-`scripts/live/dashboard.py` is a small local web app that draws the same signals in a browser while the flight runs: fault probability with the 0.5 threshold, altitude error, altitude and vertical speed, plus a status banner (normal or fault alarm, with the alarm time) and a marker where the engine was cut. Hover shows the values, "Table" shows the numbers, and it follows the light or dark setting of the browser. It uses only the Python standard library and needs no internet.
+`scripts/live/dashboard.py` is a small local web app that draws the same signals in a browser while the flight runs: fault probability with the 0.5 threshold, altitude error, altitude and vertical speed, plus a status banner (normal or fault alarm, with the alarm time) and a marker where the engine was cut. It opens a browser tab by itself (in WSL, the Windows browser; `--no-open` to skip) and moves to the next free port if the one you asked for is taken. Hover shows the values, "Table" shows the numbers, and it follows the light or dark setting of the browser. It uses only the Python standard library and needs no internet.
 
 With the simulator (add `--serve` to the live detector, then open the address in the browser):
 

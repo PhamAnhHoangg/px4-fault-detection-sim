@@ -99,10 +99,36 @@ def make_handler(hub):
     return H
 
 
-def serve(hub, port=8000, host="127.0.0.1"):
-    srv = ThreadingHTTPServer((host, port), make_handler(hub)); srv.daemon_threads = True
+def serve(hub, port=8000, host="127.0.0.1", tries=20):
+    """Start the page server. If the port is taken, try the next ones (port 0 = any free port)."""
+    for p in ([port] if port == 0 else range(port, port + tries)):
+        try:
+            srv = ThreadingHTTPServer((host, p), make_handler(hub))
+            break
+        except OSError:
+            continue
+    else:
+        raise OSError(f"ports {port} to {port + tries - 1} are all in use")
+    srv.daemon_threads = True
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv
+
+
+def open_tab(url):
+    """Open the page in a browser tab. In WSL this opens the Windows browser."""
+    import os, shutil, subprocess, webbrowser
+    try:
+        if "microsoft" in open("/proc/version").read().lower():
+            for cmd in (["wslview", url], ["explorer.exe", url], ["cmd.exe", "/c", "start", "", url]):
+                if shutil.which(cmd[0]):
+                    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd="/")
+                    return True
+    except OSError:
+        pass
+    try:
+        return webbrowser.open_new_tab(url)
+    except Exception:
+        return False
 
 
 def replay(hub, csv_path, speed=1.0, loop=False):
@@ -127,10 +153,14 @@ if __name__ == "__main__":
     ap.add_argument("--port", type=int, default=8000); ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--speed", type=float, default=1.0, help="1 = real time, 4 = four times faster")
     ap.add_argument("--loop", action="store_true")
+    ap.add_argument("--no-open", action="store_true", help="do not open a browser tab")
     a = ap.parse_args()
     hub = Hub(mode="replay", title="UAV fault detector: replay of " + Path(a.replay).name)
-    serve(hub, a.port, a.host)
-    print(f"open http://localhost:{a.port}  (Ctrl+C to stop)", flush=True)
+    srv = serve(hub, a.port, a.host)
+    url = f"http://localhost:{srv.server_address[1]}"
+    print(f"dashboard: {url}  (Ctrl+C to stop)", flush=True)
+    if not a.no_open:
+        open_tab(url)
     try:
         replay(hub, a.replay, a.speed, a.loop)
         print("replay finished; the page keeps the last state. Ctrl+C to stop.", flush=True)
