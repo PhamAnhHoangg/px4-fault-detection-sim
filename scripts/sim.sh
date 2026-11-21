@@ -58,6 +58,9 @@ case "${1:-}" in
     for kv in FW_THR_MAX=1 FW_THR_MIN=0 CA_SV_CS2_TRQ_P=1 NAV_DLL_ACT=0; do pparam set "${kv%=*}" "${kv#*=}" >/dev/null; done
     case "$TARGET" in sih*) pparam set SIH_T_MAX 6 >/dev/null ;; esac
     echo "ready. FW_THR_MAX = $(pparam show FW_THR_MAX | awk '/FW_THR_MAX/{print $NF}')"
+    if grep -q "Unable to find uri" "$LOG"; then
+      echo "WARNING: Gazebo could not load the plane model, so there is no plane:"; grep "Unable to find uri" "$LOG" | head -2
+    fi
     ;;
   status)
     if running; then
