@@ -1,0 +1,7 @@
+flight,fault_sec,detected,delay_s,false_alarm_seconds_before_fault,seconds_before
+e1,41.3,True,1.7,0,31
+e2,31.4,True,1.6,0,21
+e3,49.2,True,1.8,0,39
+e4,37.1,True,1.9,0,27
+e5,45.0,True,2.0,0,35
+e6,41.1,True,1.9,0,31
