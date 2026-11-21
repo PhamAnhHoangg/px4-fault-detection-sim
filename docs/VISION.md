@@ -1,5 +1,7 @@
 # Vision detector (OpenCV) next to the telemetry detector
 
+**Parked (2026-11-21), experimental.** The project's focus is machine learning on telemetry in simulation. Rendered Gazebo images are much cleaner than real camera video, so a vision result from the simulator would not say much about a real plane. The code stays here; picking it up again only makes sense with real flight video.
+
 Goal: a second, independent detector that only looks at an onboard camera image, and a fair comparison of which one
 alarms first after a fault. Expectation, said up front: telemetry will probably be faster, because it reads the attitude
 directly while the camera only sees its effect. The value of vision is that it does not trust the flight computer.
