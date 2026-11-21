@@ -24,6 +24,10 @@ jobs:
         run: |
           pip install "mcp>=2,<3"
           cd tools/robotics-mcp && python test_robotics.py && python test_ros2.py && python test_arduino.py && python test_robotstudio.py
+      - name: Vision tests (synthetic frames)
+        run: |
+          python scripts/vision/test_horizon.py
+          python scripts/vision/demo_synthetic.py
       - name: Dashboard server test
         run: python tests/test_dashboard.py
       - name: Shell scripts parse

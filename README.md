@@ -18,6 +18,7 @@ A test harness that runs a UAV fault detector on PX4 simulated flights, cuts the
 | Engine fault in Gazebo (set `FW_THR_MIN` and `FW_THR_MAX` to 0) | confirmed by hand, see below |
 | Scripted Gazebo flights (`scripts/gazebo/run_flight_gz.sh`, version 3, batch `record_set.sh`) | works, 12 flights recorded on 2026-11-20 (6 normal, 6 engine cut) |
 | Detector on the 12 Gazebo flights | works, see results below |
+| Vision detector from an onboard camera (`scripts/vision`, [docs/VISION.md](docs/VISION.md)) | OpenCV part tested on synthetic frames; Gazebo camera not started |
 | Browser dashboard of the live signals (`scripts/live/dashboard.py`) | works in SIH and in replay (2026-11-20); Gazebo and Windows browser not checked |
 | Detector running live while the plane flies (`scripts/live/live_detector.py`) | works in SIH (checked against the flight log) and in one Gazebo flight with the plot window open (2026-11-20) |
 | Elevator fault (`CA_SV_CS2_TRQ_P` set to 0), recorder and cross-fault test | scripts written, not flown yet |
@@ -156,6 +157,8 @@ scripts/
   gazebo/record_set.sh    record the 6 normal and 6 engine-cut Gazebo flights
   gazebo/record_set_elevator.sh   6 elevator-fault flights (not flown yet)
   cross_fault.py          train on one fault type, test on another
+  vision/horizon.py       OpenCV horizon detection (tested on synthetic frames, see docs/VISION.md)
+  vision/vision_detect.py vision alarm; vision/compare_alarms.py: vision vs telemetry
   sim.sh                  start, stop and check the simulator in the background (one terminal)
   live/train_model.py     train the forest on a table and save it
   live/probe_stream.py    diagnostic: MAVLink message rates
